@@ -14,9 +14,19 @@ ConfigWidget::ConfigWidget (ExecuteAndProcessOutput * executorHandle) :
 	programConfig = new QHBoxLayout;
 	mainLayout->addLayout (programConfig);
 
-	programName = new QLineEdit;
-	programName->setPlaceholderText ("Simulator program & arguments");
-	programConfig->addWidget (programName, 1);
+	programAddress = new QLineEdit;
+	programAddress->setPlaceholderText ("Simulator network address");
+	programConfig->addWidget (programAddress, 1);
+
+	programPort = new QSpinBox;
+	programPort->setRange (1, (1 << 16) - 1);
+	programPort->setValue (8000);
+	programPort->setToolTip ("Simulator port");
+	programConfig->addWidget (programPort);
+	
+	programInit = new QPushButton (style.standardIcon (QStyle::SP_ArrowUp), QString ());
+	programInit->setToolTip ("Load data into simulator");
+	programConfig->addWidget (programInit);
 
 	programStart = new QPushButton (style.standardIcon (QStyle::SP_MediaPlay), QString ());
 	programConfig->addWidget (programStart);
@@ -50,6 +60,9 @@ ConfigWidget::ConfigWidget (ExecuteAndProcessOutput * executorHandle) :
 	// Signals
 	QObject::connect (openFromFile, SIGNAL (clicked ()),
 		this, SLOT (openFile ()));
+
+	QObject::connect (programInit, SIGNAL (clicked ()),
+		this, SLOT (initClicked ()));
 	QObject::connect (programStart, SIGNAL (clicked ()),
 		this, SLOT (playClicked ()));
 	QObject::connect (programPause, SIGNAL (clicked ()),
@@ -62,8 +75,10 @@ void ConfigWidget::setState (SimulatorState state) {
 	mState = state;
 	bool isStopped = state == Stopped;
 
-	programName->setEnabled (isStopped);
-	programStart->setEnabled (state != Running);
+	programAddress->setEnabled (isStopped);
+	programPort->setEnabled (isStopped);
+	programInit->setEnabled (isStopped);
+	programStart->setEnabled (state == Paused);
 	programPause->setEnabled (not isStopped);
 	programStop->setEnabled (not isStopped);
 	mapName->setEnabled (isStopped);
@@ -79,19 +94,22 @@ void ConfigWidget::openFile (void) {
 		mapName->setText (file);
 }
 
-void ConfigWidget::playClicked (void) {
+void ConfigWidget::initClicked (void) {
 	if (mState == Stopped) {
-		// Try to launch process
-		QString error = executor->start (
-			programName->text (),
+		QString error = executor->init (
+			programAddress->text (), programPort->value (),
 			mapName->text (), cellSize->value ()
 		);
 		if (error == QString ())
-			setState (Running);
+			setState (Paused);
 		else
 			QMessageBox::critical (this, "Unable to launch simulator", error);
-	} else if (mState == Paused) {
-		executor->resume ();
+	}
+}
+
+void ConfigWidget::playClicked (void) {
+	if (mState == Paused) {
+		executor->start ();
 		setState (Running);
 	}
 }
@@ -106,7 +124,7 @@ void ConfigWidget::pauseClicked (void) {
 }
 
 void ConfigWidget::stopClicked (void) {
-	if (mState == Running || mState == Paused) {
+	if (mState != Stopped) {
 		executor->stop ();
 		setState (Stopped);
 	}

@@ -20,6 +20,7 @@ class ConfigWidget : public QGroupBox {
 		void setState (SimulatorState state);
 		
 		void openFile (void);
+		void initClicked (void);
 		void playClicked (void);
 		void pauseClicked (void);
 		void stopClicked (void);
@@ -31,7 +32,9 @@ class ConfigWidget : public QGroupBox {
 		QVBoxLayout * mainLayout;
 
 		QHBoxLayout * programConfig;
-		QLineEdit * programName;
+		QLineEdit * programAddress;
+		QSpinBox * programPort;
+		QPushButton * programInit;
 		QPushButton * programStart;
 		QPushButton * programPause;
 		QPushButton * programStop;
@@ -59,5 +62,6 @@ class WireWorldDrawZone : public QLabel {
 			setPixmap (pixmap.scaled (size (), Qt::KeepAspectRatio));
 		}
 };
+
 #endif
 

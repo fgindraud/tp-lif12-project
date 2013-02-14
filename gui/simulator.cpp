@@ -1,13 +1,16 @@
 #include "simulator.h"
 
-QString ExecuteAndProcessOutput::start (QString program, QString mapFile, int cellSize) {
+QString ExecuteAndProcessOutput::init (
+	QString program, int port,
+	QString mapFile, int cellSize
+) {
 	return QString ();
 }
 
-void ExecuteAndProcessOutput::pause (void) {
+void ExecuteAndProcessOutput::start (void) {
 }
 
-void ExecuteAndProcessOutput::resume (void) {
+void ExecuteAndProcessOutput::pause (void) {
 }
 
 void ExecuteAndProcessOutput::step (void) {

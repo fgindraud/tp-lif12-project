@@ -1,7 +1,8 @@
 #ifndef SIM_H
 #define SIM_H
 
-#include <QtGui>
+#include <QHostAddress>
+#include <QTcpSocket>
 #include <QtCore>
 
 #include "../protocol.h"
@@ -11,15 +12,20 @@ class ExecuteAndProcessOutput : public QObject {
 
 	public:
 		ExecuteAndProcessOutput () {}
-		
-		QString start (QString program, QString mapFile, int cellSize);
+	
+		QString init (QString program, int port, QString mapFile, int cellSize);
+
+		void start (void);
 		void pause (void);
-		void resume (void);
 		void step (void);
 		void stop (void);
 
 	signals:
 		void redraw (QPixmap & pixmap);
+
+	private:
+		QTcpSocket mSocket;
+		QImage blah
 };
 
 #endif

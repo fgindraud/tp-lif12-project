@@ -6,6 +6,7 @@ TEMPLATE = app
 TARGET = 
 DEPENDPATH += .
 INCLUDEPATH += .
+QT += network
 
 # Input
 HEADERS += main.h simulator.h ../protocol.h
