@@ -1,7 +1,10 @@
 #include "main.h"
 
+#include <QAbstractSocket>
+
 ConfigWidget::ConfigWidget (ExecuteAndProcessOutput * executorHandle) :
-	executor (executorHandle) {
+	executor (executorHandle)
+{
 	QCommonStyle style;
 
 	// Create Gui
@@ -23,7 +26,7 @@ ConfigWidget::ConfigWidget (ExecuteAndProcessOutput * executorHandle) :
 	programPort->setValue (8000);
 	programPort->setToolTip ("Simulator port");
 	programConfig->addWidget (programPort);
-	
+
 	programInit = new QPushButton (style.standardIcon (QStyle::SP_ArrowUp), QString ());
 	programInit->setToolTip ("Load data into simulator");
 	programConfig->addWidget (programInit);
@@ -59,51 +62,51 @@ ConfigWidget::ConfigWidget (ExecuteAndProcessOutput * executorHandle) :
 
 	// Signals
 	QObject::connect (openFromFile, SIGNAL (clicked ()),
-		this, SLOT (openFile ()));
+			this, SLOT (openFile ()));
 
 	QObject::connect (programInit, SIGNAL (clicked ()),
-		this, SLOT (initClicked ()));
+			this, SLOT (initClicked ()));
 	QObject::connect (programStart, SIGNAL (clicked ()),
-		this, SLOT (playClicked ()));
+			this, SLOT (playClicked ()));
 	QObject::connect (programPause, SIGNAL (clicked ()),
-		this, SLOT (pauseClicked ()));
+			this, SLOT (pauseClicked ()));
 	QObject::connect (programStop, SIGNAL (clicked ()),
-		this, SLOT (stopClicked ()));
+			this, SLOT (stopClicked ()));
+
+	QObject::connect (executor, SIGNAL (errored (QString)),
+			this, SLOT (onError (QString)));
 }
 
 void ConfigWidget::setState (SimulatorState state) {
 	mState = state;
-	bool isStopped = state == Stopped;
+	bool enableSettings = state == Stopped;
 
-	programAddress->setEnabled (isStopped);
-	programPort->setEnabled (isStopped);
-	programInit->setEnabled (isStopped);
+	programAddress->setEnabled (enableSettings);
+	programPort->setEnabled (enableSettings);
+	programInit->setEnabled (enableSettings);
 	programStart->setEnabled (state == Paused);
-	programPause->setEnabled (not isStopped);
-	programStop->setEnabled (not isStopped);
-	mapName->setEnabled (isStopped);
-	openFromFile->setEnabled (isStopped);
-	cellSize->setEnabled (isStopped);
+	programPause->setEnabled (state == Running || state == Paused);
+	programStop->setEnabled (state == Running || state == Paused);
+	mapName->setEnabled (enableSettings);
+	openFromFile->setEnabled (enableSettings);
+	cellSize->setEnabled (enableSettings);
 }
 
 void ConfigWidget::openFile (void) {
 	QString file = QFileDialog::getOpenFileName (
-		this, "Open image", QDir::currentPath (),
-		"Images (*.png *.jpg *.xpm)");
+			this, "Open image", QDir::currentPath (),
+			"Images (*.png *.jpg *.xpm)");
 	if (file != QString ())
 		mapName->setText (file);
 }
 
 void ConfigWidget::initClicked (void) {
 	if (mState == Stopped) {
-		QString error = executor->init (
-			programAddress->text (), programPort->value (),
-			mapName->text (), cellSize->value ()
-		);
-		if (error == QString ())
-			setState (Paused);
-		else
-			QMessageBox::critical (this, "Unable to launch simulator", error);
+		setState (Initializing);
+		executor->init (
+				programAddress->text (), programPort->value (),
+				mapName->text (), cellSize->value ()
+				);
 	}
 }
 
@@ -128,6 +131,15 @@ void ConfigWidget::stopClicked (void) {
 		executor->stop ();
 		setState (Stopped);
 	}
+}
+
+void ConfigWidget::onError (QString errorText) {
+	QMessageBox::critical (this, "Simuator error - aborting simulation", errorText);
+	setState (Stopped);
+}
+
+void ConfigWidget::onInitSuccess (void) {
+	setState (Paused);
 }
 
 int main (int argc, char * argv[]) {

@@ -11,7 +11,7 @@ class ConfigWidget : public QGroupBox {
 
 	public:
 		enum SimulatorState {
-			Stopped, Paused, Running
+			Stopped, Initializing, Paused, Running
 		};
 
 		ConfigWidget (ExecuteAndProcessOutput * executorHandle);
@@ -24,6 +24,9 @@ class ConfigWidget : public QGroupBox {
 		void playClicked (void);
 		void pauseClicked (void);
 		void stopClicked (void);
+
+		void onError (QString errorText);
+		void onInitSuccess (void);
 
 	private:
 		SimulatorState mState;
