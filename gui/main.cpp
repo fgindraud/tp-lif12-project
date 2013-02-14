@@ -59,11 +59,18 @@ ConfigWidget::ConfigWidget (ExecuteAndProcessOutput * executorHandle) :
 	cellSize->setToolTip ("Size of cells in the image");
 	wireworldMapConfig->addWidget (cellSize);
 
+	enableScaling = new QCheckBox ("Scaling");
+	enableScaling->setCheckState (Qt::Checked);
+	wireworldMapConfig->addWidget (enableScaling);
+
 	setState (Stopped);
 
 	// Signals
 	QObject::connect (openFromFile, SIGNAL (clicked ()),
 			this, SLOT (openFile ()));
+
+	QObject::connect (enableScaling, SIGNAL (stateChanged (int)),
+			this, SLOT (scalingChecked (int)));
 
 	QObject::connect (programInit, SIGNAL (clicked ()),
 			this, SLOT (initClicked ()));
@@ -95,12 +102,15 @@ void ConfigWidget::setState (SimulatorState state) {
 	mapName->setEnabled (enableSettings);
 	openFromFile->setEnabled (enableSettings);
 	cellSize->setEnabled (enableSettings);
+	enableScaling->setEnabled (true);
 }
+
+void ConfigWidget::scalingChecked (int state) { emit setScaling (state == Qt::Checked); }
 
 void ConfigWidget::openFile (void) {
 	QString file = QFileDialog::getOpenFileName (
 			this, "Open image", QDir::currentPath (),
-			"Images (*.png *.jpg *.xpm)");
+			"Images (*.png *.jpg *.xpm *.gif)");
 	if (file != QString ())
 		mapName->setText (file);
 }
@@ -108,10 +118,8 @@ void ConfigWidget::openFile (void) {
 void ConfigWidget::initClicked (void) {
 	if (mState == Stopped) {
 		setState (Initializing);
-		executor->init (
-				programAddress->text (), programPort->value (),
-				mapName->text (), cellSize->value ()
-				);
+		executor->init ( programAddress->text (), programPort->value (),
+				mapName->text (), cellSize->value ());
 	}
 }
 
@@ -143,13 +151,8 @@ void ConfigWidget::onError (QString errorText) {
 	onConnectionEnded ();
 }
 
-void ConfigWidget::onInitSuccess (void) {
-	setState (Paused);
-}
-
-void ConfigWidget::onConnectionEnded (void) {
-	setState (Stopped);
-}
+void ConfigWidget::onInitSuccess (void) { setState (Paused); } 
+void ConfigWidget::onConnectionEnded (void) { setState (Stopped); }
 
 /* ------ main ------ */
 int main (int argc, char * argv[]) {
@@ -166,8 +169,11 @@ int main (int argc, char * argv[]) {
 	ConfigWidget * configWidget = new ConfigWidget (executor);
 	mainLayout->addWidget (configWidget);
 
-	WireWorldDrawZone * wireworldState = new WireWorldDrawZone (executor);
-	mainLayout->addWidget (wireworldState, 1);
+	WireWorldDrawZone * wireworldDrawer = new WireWorldDrawZone (executor);
+	mainLayout->addWidget (wireworldDrawer, 1);
+
+	QObject::connect (configWidget, SIGNAL (setScaling (bool)),
+			wireworldDrawer, SLOT (setScalingStatus (bool)));
 
 	window->show ();
 	return app.exec ();

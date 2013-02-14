@@ -19,8 +19,13 @@ class ConfigWidget : public QGroupBox {
 
 		ConfigWidget (ExecuteAndProcessOutput * executorHandle);
 
+	signals:
+		void setScaling (bool enabled);
+
 	private slots:
 		void setState (SimulatorState state);
+
+		void scalingChecked (int state);
 		
 		void openFile (void);
 		void initClicked (void);
@@ -50,6 +55,7 @@ class ConfigWidget : public QGroupBox {
 		QLineEdit * mapName;
 		QPushButton * openFromFile;
 		QSpinBox * cellSize;
+		QCheckBox * enableScaling;
 };
 
 /*
@@ -59,7 +65,7 @@ class WireWorldDrawZone : public QLabel {
 	Q_OBJECT
 
 	public:
-		WireWorldDrawZone (ExecuteAndProcessOutput * executor) {
+		WireWorldDrawZone (ExecuteAndProcessOutput * executor) : scalingEnabled (true) {
 			setAlignment (Qt::AlignCenter);
 			setSizePolicy (QSizePolicy::Expanding, QSizePolicy::Expanding);
 
@@ -78,13 +84,19 @@ class WireWorldDrawZone : public QLabel {
 			updateScreen ();
 		}
 
+		void setScalingStatus (bool enabled) {
+			scalingEnabled = enabled;
+			updateScreen ();
+		}
 
 	private:
 		void updateScreen (void) {
 			if (buffer.isNull ())
 				setPixmap (QPixmap ());
-			else
+			else if (scalingEnabled)
 				setPixmap (buffer.scaled (size (), Qt::KeepAspectRatio));
+			else
+				setPixmap (buffer);
 		}
 
 		void resizeEvent (QResizeEvent * event) {
@@ -93,6 +105,7 @@ class WireWorldDrawZone : public QLabel {
 		}
 
 		QPixmap buffer;
+		bool scalingEnabled;
 };
 
 #endif

@@ -1,11 +1,13 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
 #include <sys/socket.h>
 #include <string.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <signal.h>
 
 #include "../protocol.h"
 
@@ -20,35 +22,37 @@ int send_words (int sock, wireworld_message_t * buffer, uint32_t count);
 void network_to_map (wireworld_message_t * n_map, char * l_map, uint32_t xsize, uint32_t ysize);
 void map_to_network (wireworld_message_t * n_map, char * l_map, uint32_t xsize, uint32_t ysize);
 int wait_for_init (int sock, uint32_t * xs, uint32_t * ys, char ** maps);
+void update_map (int * dir, char ** maps, uint32_t xs, uint32_t ys);
 
 /* Small utils */
 char * map (char * tab, int x, int y, int xsize) { return &tab[x + y * xsize]; }
 
 /* main */
 int main (void) {
-	int sock = socket (AF_INET, SOCK_STREAM, 0);
+	// Avoid program termination on failed write
+	sys_assert (signal (SIGPIPE, SIG_IGN) != SIG_ERR, "signal"); 
+
+	int sock = socket (AF_INET6, SOCK_STREAM, 0);
 	sys_assert (sock != -1, "socket");
 
-	struct sockaddr_in saddr;
-	memset (&saddr, 0, sizeof (struct sockaddr_in));
+	struct sockaddr_in6 saddr;
 
-	saddr.sin_family = AF_INET;
-	saddr.sin_port = htons (PORT);
-	saddr.sin_addr.s_addr = htonl (INADDR_ANY);
+	memset (&saddr, 0, sizeof (saddr));
+	saddr.sin6_family = AF_INET6;
+	saddr.sin6_port = htons (PORT);
+	saddr.sin6_addr = in6addr_any;
 
-	int res = bind (sock, (const struct sockaddr*) &saddr, sizeof (struct sockaddr_in));
+	int res = bind (sock, (const struct sockaddr*) &saddr, sizeof (saddr));
 	sys_assert (res != -1, "bind");
 		
 	sys_assert (listen (sock, 5) != -1, "listen");
 
 	while (1) {
 		res = accept (sock, NULL, NULL);
-		if (res != -1) {
-			perform_simulation (res);
-			close (res);
-		} else {
-			perror ("accept");
-		}
+		sys_assert (res != -1, "accept");
+		
+		perform_simulation (res);
+		close (res);
 	}
 	
 	return EXIT_SUCCESS;
@@ -159,9 +163,28 @@ void map_to_network (wireworld_message_t * n_map, char * l_map, uint32_t xsize, 
 void perform_simulation (int sock) {
 	uint32_t xsize, ysize;
 	char * maps [2];
-	int updatedMap = 0;
 
 	if (wait_for_init (sock, &xsize, &ysize, maps) == 0) {
+		int updatedMap = 0;
+
+		uint32_t bitMapSize = xsize * ysize * C_BIT_SIZE / M_BIT_SIZE + 1;
+		wireworld_message_t * bitMap = malloc (bitMapSize * sizeof (wireworld_message_t));
+		assert (bitMap != NULL);
+		
+		while (1) {
+			// Convert and send old map.
+			map_to_network (bitMap, maps[updatedMap], xsize, ysize);
+			if (send_words (sock, bitMap, bitMapSize) == -1)
+				break;
+
+			// Wait 0.5s
+			usleep (500000);
+
+			// Compute new step
+			update_map (&updatedMap, maps, xsize, ysize);
+		}
+
+		free (bitMap);
 		free (maps[0]);
 		free (maps[1]);
 	}
@@ -194,11 +217,11 @@ int wait_for_init (int sock, uint32_t * xs, uint32_t * ys, char ** maps) {
 				*map (maps[1], i, *ys + 1, *xs + 2) = C_INSULATOR;
 			}
 			// vert lines
-			for (i = 0; i < *xs + 2; ++i) {
-				*map (maps[0], i, 0, *xs + 2) = C_INSULATOR;
-				*map (maps[0], i, *ys + 1, *xs + 2) = C_INSULATOR;
-				*map (maps[1], i, 0, *xs + 2) = C_INSULATOR;
-				*map (maps[1], i, *ys + 1, *xs + 2) = C_INSULATOR;
+			for (i = 0; i < *ys + 2; ++i) {
+				*map (maps[0], 0, i, *xs + 2) = C_INSULATOR;
+				*map (maps[0], *xs + 1, i, *xs + 2) = C_INSULATOR;
+				*map (maps[1], 0, i, *xs + 2) = C_INSULATOR;
+				*map (maps[1], *xs + 1, i, *xs + 2) = C_INSULATOR;
 			}
 			// Convert map
 			network_to_map (buf, maps[0], *xs, *ys);
@@ -216,3 +239,45 @@ int wait_for_init (int sock, uint32_t * xs, uint32_t * ys, char ** maps) {
 	}
 }
 
+void update_map (int * dir, char ** maps, uint32_t xs, uint32_t ys) {
+	char * fromMap = maps[*dir];
+	char * toMap = maps[1 - *dir];
+	uint32_t i, j;
+				
+	static const int diffs[][2] = {
+		{ -1, -1 },
+		{ 0, -1 },
+		{ 1, -1 },
+		{ 1, 0 },
+		{ 1, 1 },
+		{ 0, 1 },
+		{ -1, 1 },
+		{ -1, 0 }
+	};
+
+	for (i = 1; i < xs + 1; ++i)
+		for (j = 1; j < ys + 1; ++j) {
+			char state = *map (fromMap, i, j, xs + 2);
+			char * out = map (toMap, i, j, xs + 2);
+
+			if (state == C_INSULATOR) {
+				*out = C_INSULATOR;
+			} else if (state == C_WIRE) {
+				int nbHeads = 0;
+				int k;
+				for (k = 0; k < 8; ++k)
+					if (*map (fromMap, i + diffs[k][0], j + diffs[k][1], xs + 2) == C_HEAD)
+						nbHeads++;
+				if (nbHeads == 1 || nbHeads == 2)
+					*out = C_HEAD;
+				else
+					*out = C_WIRE;
+			} else if (state == C_HEAD) {
+				*out = C_TAIL;
+			} else { // C_TAIL
+				*out = C_WIRE;
+			}
+		}
+
+	*dir = 1 - *dir;
+}
