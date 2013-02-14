@@ -151,9 +151,6 @@ void ExecuteAndProcessOutput::init (
 
 	// Start Tcp
 	mSocket.connectToHost (program, port);
-	
-	// TODO remove, just for test
-	emit redraw (mCellMap.toImage ());
 }
 
 /* Little messages */
