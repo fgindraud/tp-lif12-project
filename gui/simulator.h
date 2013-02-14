@@ -65,6 +65,8 @@ class ExecuteAndProcessOutput : public QObject {
 		void initialized (void);
 		// Called if error happened. In this case the connection will be closed.
 		void errored (QString error);
+		// End of connection
+		void connectionEnded (void);
 
 		// Called when a new frame is available
 		void redraw (QImage image);
@@ -73,9 +75,11 @@ class ExecuteAndProcessOutput : public QObject {
 		void onSocketError (void);
 		void hasConnected (void);
 		void canReadData (void);
+		void onSocketDisconnected (void);
 
 	private:
-		void writeInternal (wireworld_message_t * messages, quint32 nbMessages);
+		void writeInternal (const wireworld_message_t * messages, quint32 nbMessages);
+		void readInternal (wireworld_message_t * messages, quint32 nbMessages);
 
 		QTcpSocket mSocket;
 		WireWorldMap mCellMap;

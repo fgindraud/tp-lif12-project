@@ -30,6 +30,7 @@ class ConfigWidget : public QGroupBox {
 
 		void onError (QString errorText);
 		void onInitSuccess (void);
+		void onConnectionEnded (void);
 
 	private:
 		SimulatorState mState;

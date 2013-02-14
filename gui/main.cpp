@@ -78,6 +78,8 @@ ConfigWidget::ConfigWidget (ExecuteAndProcessOutput * executorHandle) :
 			this, SLOT (onError (QString)));
 	QObject::connect (executor, SIGNAL (initialized ()),
 			this, SLOT (onInitSuccess ()));
+	QObject::connect (executor, SIGNAL (connectionEnded ()),
+			this, SLOT (onConnectionEnded ()));
 }
 
 void ConfigWidget::setState (SimulatorState state) {
@@ -137,12 +139,16 @@ void ConfigWidget::stopClicked (void) {
 }
 
 void ConfigWidget::onError (QString errorText) {
-	QMessageBox::critical (this, "Simuator error - aborting simulation", errorText);
-	setState (Stopped);
+	QMessageBox::critical (this, "Simulator error - aborting simulation", errorText);
+	onConnectionEnded ();
 }
 
 void ConfigWidget::onInitSuccess (void) {
 	setState (Paused);
+}
+
+void ConfigWidget::onConnectionEnded (void) {
+	setState (Stopped);
 }
 
 /* ------ main ------ */

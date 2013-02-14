@@ -122,6 +122,8 @@ ExecuteAndProcessOutput::ExecuteAndProcessOutput () {
 			this, SLOT (hasConnected ()));
 	QObject::connect (&mSocket, SIGNAL (readyRead ()),
 			this, SLOT (canReadData ()));
+	QObject::connect (&mSocket, SIGNAL (disconnected ()),
+			this, SLOT (onSocketDisconnected ()));
 }
 
 void ExecuteAndProcessOutput::init (
@@ -196,15 +198,35 @@ void ExecuteAndProcessOutput::hasConnected (void) {
 }
 
 void ExecuteAndProcessOutput::canReadData (void) {
+	// Wait for a complete frame
+	quint32 frameSize = mCellMap.getCellMapMessageSize () * sizeof (wireworld_message_t);
+	
+	// Read all pending frames
+	while (mSocket.bytesAvailable () >= frameSize) {
+		readInternal (mCellMap.getCellMapContainer (), mCellMap.getCellMapMessageSize ());
+	}
+
+	// Only show the last one
+	emit redraw (mCellMap.toImage ());
+
+	/* We do not control the timing, so we flush all frames we can.
+	 * The server should ensure that frames are sent at the right timing.
+	 */
 }
 
+void ExecuteAndProcessOutput::onSocketDisconnected (void) {
+	// Signal gui if connection has been closed
+	emit connectionEnded ();
+}
+
+/* Internal read/write */
 void ExecuteAndProcessOutput::writeInternal (
-		wireworld_message_t * messages, quint32 nbMessages) {
-	uchar * buffer = new uchar[nbMessages * sizeof (wireworld_message_t)];
+		const wireworld_message_t * messages, quint32 nbMessages) {
+	wireworld_message_t * buffer = new wireworld_message_t[nbMessages];
 	
 	// Convert endianness
 	for (quint32 i = 0; i < nbMessages; ++i)
-		qToBigEndian (messages[i], &buffer[i * sizeof (wireworld_message_t)]);
+		buffer[i] = qToBigEndian (messages[i]);
 
 	// Send all of it (qt should not block, it buffers instead)
 	const char * it = (const char *) buffer;
@@ -212,7 +234,7 @@ void ExecuteAndProcessOutput::writeInternal (
 	while (bytesToSend > 0) {
 		qint64 sent = mSocket.write (it, bytesToSend);
 
-		// On error, abort everything
+		// On error, abort connection.
 		if (sent == -1) {
 			emit errored ("Write error : " + mSocket.errorString ());
 			mSocket.abort ();
@@ -227,3 +249,34 @@ void ExecuteAndProcessOutput::writeInternal (
 	delete[] buffer;
 }
 
+void ExecuteAndProcessOutput::readInternal (
+		wireworld_message_t * messages, quint32 nbMaxMessages) {
+	wireworld_message_t * buffer = new wireworld_message_t[nbMaxMessages];
+	
+	// Send all of it (qt should not block, it buffers instead)
+	char * it = (char *) buffer;
+	qint64 bytesToRead = nbMaxMessages * sizeof (wireworld_message_t);
+	while (bytesToRead > 0) {
+		qint64 read = mSocket.read (it, bytesToRead);
+		if (read == -1) {
+			// On error, abort connection
+			emit errored ("Read error : " + mSocket.errorString ());
+			mSocket.abort ();
+			return;
+		} else if (read == 0) {
+			// If no more data, terminate connection peacefully
+			emit connectionEnded ();
+			mSocket.close ();	
+		}
+
+		// Update counters
+		bytesToRead -= read;
+		it += read;
+	}
+
+	// Convert endianness
+	for (quint32 i = 0; i < nbMaxMessages; ++i)
+		messages[i] = qFromBigEndian (buffer[i]);
+
+	delete[] buffer;
+}
