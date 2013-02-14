@@ -3,3 +3,6 @@ Protocol info is in protocol.h (can be included in students simulators).
 To compile the Gui (in gui dir):
 $ qmake
 $ make
+
+To compile the example server (in server dir) :
+$ make
