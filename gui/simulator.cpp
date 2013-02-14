@@ -50,8 +50,9 @@ bool WireWorldMap::setSize (QSize size) {
 	return true;
 }
 
+QSize WireWorldMap::getSize (void) const { return imageSize; }
 wireworld_message_t * WireWorldMap::getCellMapContainer (void) { return internalCellMap; }
-quint32 WireWorldMap::getCellMapMessageSize (void) { return messageSize; }
+quint32 WireWorldMap::getCellMapMessageSize (void) const { return messageSize; }
 
 bool WireWorldMap::fromImage (QImage & image, int cellSize) {
 	// Check size is valid
@@ -84,7 +85,7 @@ bool WireWorldMap::fromImage (QImage & image, int cellSize) {
 	return true;
 }
 
-QImage WireWorldMap::toImage (void) {
+QImage WireWorldMap::toImage (void) const {
 	if (internalCellMap == 0)
 		return QImage ();
 
@@ -117,6 +118,10 @@ QImage WireWorldMap::toImage (void) {
 ExecuteAndProcessOutput::ExecuteAndProcessOutput () {
 	QObject::connect (&mSocket, SIGNAL (error (QAbstractSocket::SocketError)),
 			this, SLOT (onSocketError ()));
+	QObject::connect (&mSocket, SIGNAL (connected ()),
+			this, SLOT (hasConnected ()));
+	QObject::connect (&mSocket, SIGNAL (readyRead ()),
+			this, SLOT (canReadData ()));
 }
 
 void ExecuteAndProcessOutput::init (
@@ -143,20 +148,32 @@ void ExecuteAndProcessOutput::init (
 	}
 
 	// Start Tcp
-	//mSocket.connectToHost (program, port);
+	mSocket.connectToHost (program, port);
+	
+	// TODO remove, just for test
 	emit redraw (mCellMap.toImage ());
 }
 
+/* Little messages */
 void ExecuteAndProcessOutput::start (void) {
+	wireworld_message_t message = R_START;
+	writeInternal (&message, 1);
 }
 
 void ExecuteAndProcessOutput::pause (void) {
+	wireworld_message_t message = R_PAUSE;
+	writeInternal (&message, 1);
 }
 
 void ExecuteAndProcessOutput::step (void) {
+	wireworld_message_t message = R_STEP;
+	writeInternal (&message, 1);
 }
 
 void ExecuteAndProcessOutput::stop (void) {
+	wireworld_message_t message = R_STOP;
+	writeInternal (&message, 1);
+	mSocket.close ();
 }
 
 void ExecuteAndProcessOutput::onSocketError (void) {
@@ -165,9 +182,48 @@ void ExecuteAndProcessOutput::onSocketError (void) {
 }
 
 void ExecuteAndProcessOutput::hasConnected (void) {
+	// If connected, send init request
+	wireworld_message_t message[3];
+	message[0] = R_INIT;
+	message[1] = mCellMap.getSize ().width ();
+	message[2] = mCellMap.getSize ().height ();
+	writeInternal (message, 3);
+
+	// Send map data
+	writeInternal (mCellMap.getCellMapContainer (), mCellMap.getCellMapMessageSize ());
+	
+	emit initialized ();
 }
 
 void ExecuteAndProcessOutput::canReadData (void) {
 }
 
+void ExecuteAndProcessOutput::writeInternal (
+		wireworld_message_t * messages, quint32 nbMessages) {
+	uchar * buffer = new uchar[nbMessages * sizeof (wireworld_message_t)];
+	
+	// Convert endianness
+	for (quint32 i = 0; i < nbMessages; ++i)
+		qToBigEndian (messages[i], &buffer[i * sizeof (wireworld_message_t)]);
+
+	// Send all of it (qt should not block, it buffers instead)
+	const char * it = (const char *) buffer;
+	qint64 bytesToSend = nbMessages * sizeof (wireworld_message_t);
+	while (bytesToSend > 0) {
+		qint64 sent = mSocket.write (it, bytesToSend);
+
+		// On error, abort everything
+		if (sent == -1) {
+			emit errored ("Write error : " + mSocket.errorString ());
+			mSocket.abort ();
+			return;
+		}
+
+		// Update counters
+		bytesToSend -= sent;
+		it += sent;
+	}
+
+	delete[] buffer;
+}
 

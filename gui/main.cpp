@@ -76,6 +76,8 @@ ConfigWidget::ConfigWidget (ExecuteAndProcessOutput * executorHandle) :
 
 	QObject::connect (executor, SIGNAL (errored (QString)),
 			this, SLOT (onError (QString)));
+	QObject::connect (executor, SIGNAL (initialized ()),
+			this, SLOT (onInitSuccess ()));
 }
 
 void ConfigWidget::setState (SimulatorState state) {

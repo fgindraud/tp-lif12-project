@@ -22,19 +22,20 @@ class WireWorldMap {
 		 * Returns false if size is not valid, true if it worked
 		 */
 		bool setSize (QSize size);
+		QSize getSize (void) const;
 
 		/*	Internal cell map (native byte order)
 		 * Will store cell data.
 		 * getCellMapMessageSize : size of internal map is number of wireworld_message_t.
 		 */
 		wireworld_message_t * getCellMapContainer (void);
-		quint32 getCellMapMessageSize (void);
+		quint32 getCellMapMessageSize (void) const;
 	
 		/* Generates image from cell map
 		 * Or load from image (and set size and data)
 		 */	
 		bool fromImage (QImage & image, int cellSize = 1);
-		QImage toImage (void);
+		QImage toImage (void) const;
 
 	private:
 		QSize imageSize;
@@ -74,6 +75,8 @@ class ExecuteAndProcessOutput : public QObject {
 		void canReadData (void);
 
 	private:
+		void writeInternal (wireworld_message_t * messages, quint32 nbMessages);
+
 		QTcpSocket mSocket;
 		WireWorldMap mCellMap;
 };
