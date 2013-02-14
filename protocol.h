@@ -5,6 +5,7 @@
 
 /* Global unit for messages */
 typedef uint32_t wireworld_message_t;
+#define M_BIT_SIZE 32
 
 /********************
  * Cell description *
@@ -18,10 +19,11 @@ typedef uint32_t wireworld_message_t;
 
 /* Cell bit size */
 #define C_BIT_SIZE 2
+#define C_BIT_MASK 0x3
 
 /* cell data format in uint32_t bits :
- * |  |  |  |  |  |  |  |  | ... |  |  |
- * |  C0 |  C1 |  C2 |  C3 | ... | C16 |
+ * |  |  |  |  | ... |  |  |  |  |  |  |
+ * | C15 | C14 | ... |  C2 |  C1 |  C0 |
  */
 
 /********************************
@@ -32,7 +34,7 @@ typedef uint32_t wireworld_message_t;
  * Followed by :
  *		xsize : 1
  *		ysize : 1
- *		data (row by row) : xsize * ysize * C_BIT_SIZE / 32
+ *		data (row by row) : xsize * ysize * C_BIT_SIZE / M_BIT_SIZE + 1
  */
 #define R_INIT 0u
 
@@ -48,7 +50,7 @@ typedef uint32_t wireworld_message_t;
 
 /* Show a new state of the map
  * Followed by :
- *		data (row by row) : xsize * ysize * C_BIT_SIZE / 32
+ *		data (row by row) : xsize * ysize * C_BIT_SIZE / M_BIT_SIZE + 1
  */
 
 #endif

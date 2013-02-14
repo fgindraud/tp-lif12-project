@@ -9,6 +9,42 @@
 
 #include "../protocol.h"
 
+/*
+ * Translator class for cell array <-> image
+ */
+class WireWorldMap {
+	public:
+		WireWorldMap ();
+		~WireWorldMap ();
+
+		/* Image size to which will be interpreted raw data
+		 * Setting it will reallocate internalCellMap
+		 * Returns false if size is not valid, true if it worked
+		 */
+		bool setSize (QSize size);
+
+		/*	Internal cell map (native byte order)
+		 * Will store cell data.
+		 * getCellMapMessageSize : size of internal map is number of wireworld_message_t.
+		 */
+		wireworld_message_t * getCellMapContainer (void);
+		quint32 getCellMapMessageSize (void);
+	
+		/* Generates image from cell map
+		 * Or load from image (and set size and data)
+		 */	
+		bool fromImage (QImage & image, int cellSize = 1);
+		QImage toImage (void);
+
+	private:
+		QSize imageSize;
+		wireworld_message_t * internalCellMap;
+		quint32 messageSize;
+};
+
+/*
+ * Network and image generation.
+ */
 class ExecuteAndProcessOutput : public QObject {
 	Q_OBJECT
 
@@ -30,17 +66,16 @@ class ExecuteAndProcessOutput : public QObject {
 		void errored (QString error);
 
 		// Called when a new frame is available
-		void redraw (QPixmap & pixmap);
+		void redraw (QImage image);
 
 	private slots:
 		void onSocketError (void);
 		void hasConnected (void);
-		void canSendData (void);
 		void canReadData (void);
 
 	private:
 		QTcpSocket mSocket;
-		QImage loadedImage;
+		WireWorldMap mCellMap;
 };
 
 #endif

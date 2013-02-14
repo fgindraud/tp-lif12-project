@@ -6,6 +6,9 @@
 
 #include "simulator.h"
 
+/*
+ * Input and simulation control widget
+ */
 class ConfigWidget : public QGroupBox {
 	Q_OBJECT
 
@@ -48,22 +51,47 @@ class ConfigWidget : public QGroupBox {
 		QSpinBox * cellSize;
 };
 
+/*
+ * Auto scaled image viewer
+ */
 class WireWorldDrawZone : public QLabel {
 	Q_OBJECT
 
 	public:
 		WireWorldDrawZone (ExecuteAndProcessOutput * executor) {
 			setAlignment (Qt::AlignCenter);
+			setSizePolicy (QSizePolicy::Expanding, QSizePolicy::Expanding);
 
-			QObject::connect (executor, SIGNAL (redraw (QPixmap &)),
-					this, SLOT (updateWireworld (QPixmap &)));
+			QObject::connect (executor, SIGNAL (redraw (QImage)),
+					this, SLOT (updateWireworld (QImage)));
 		}
 		~WireWorldDrawZone () {}
 
 	public slots:
-		void updateWireworld (QPixmap & pixmap) {
-			setPixmap (pixmap.scaled (size (), Qt::KeepAspectRatio));
+		void updateWireworld (QImage image) {
+			// Avoid absurd resizes
+			setMinimumSize (image.size ());
+
+			// Bufferise image
+			buffer = QPixmap::fromImage (image);
+			updateScreen ();
 		}
+
+
+	private:
+		void updateScreen (void) {
+			if (buffer.isNull ())
+				setPixmap (QPixmap ());
+			else
+				setPixmap (buffer.scaled (size (), Qt::KeepAspectRatio));
+		}
+
+		void resizeEvent (QResizeEvent * event) {
+			(void) event;
+			updateScreen ();
+		}
+
+		QPixmap buffer;
 };
 
 #endif

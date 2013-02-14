@@ -2,6 +2,7 @@
 
 #include <QAbstractSocket>
 
+/* ------ ConfigWidget ------ */
 ConfigWidget::ConfigWidget (ExecuteAndProcessOutput * executorHandle) :
 	executor (executorHandle)
 {
@@ -142,6 +143,7 @@ void ConfigWidget::onInitSuccess (void) {
 	setState (Paused);
 }
 
+/* ------ main ------ */
 int main (int argc, char * argv[]) {
 	QApplication app (argc, argv);
 
