@@ -3,7 +3,7 @@
 ######################################################################
 
 TEMPLATE = app
-TARGET = 
+TARGET = gui
 DEPENDPATH += .
 INCLUDEPATH += .
 QT += network
