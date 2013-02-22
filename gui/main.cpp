@@ -1,6 +1,10 @@
 #include "main.h"
 
 #include <QAbstractSocket>
+#include <QCommonStyle>
+#include <QMessageBox>
+#include <QFileDialog>
+#include <QApplication>
 
 /* ------ ConfigWidget ------ */
 ConfigWidget::ConfigWidget (ExecuteAndProcessOutput * executorHandle) :

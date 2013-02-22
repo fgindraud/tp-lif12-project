@@ -1,8 +1,15 @@
 #ifndef MAIN_H
 #define MAIN_H
 
-#include <QtGui>
 #include <QtCore>
+#include <QHBoxLayout>
+#include <QVBoxLayout>
+#include <QLineEdit>
+#include <QSpinBox>
+#include <QPushButton>
+#include <QCheckBox>
+#include <QGroupBox>
+#include <QLabel>
 
 #include "simulator.h"
 

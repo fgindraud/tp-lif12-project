@@ -6,7 +6,8 @@ TEMPLATE = app
 TARGET = gui
 DEPENDPATH += .
 INCLUDEPATH += .
-QT += network
+QT += core gui network
+greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 # Input
 HEADERS += main.h simulator.h ../protocol.h
