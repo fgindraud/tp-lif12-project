@@ -55,7 +55,7 @@ class ExecuteAndProcessOutput : public QObject {
 
 		ExecuteAndProcessOutput ();
 	
-		void init (QString program, int port, QString mapFile, int cellSize);
+		void init (QString program, int port, QString mapFile, int cellSize, int updateRate, int samplingRate);
 
 		void start (void);
 		void pause (void);

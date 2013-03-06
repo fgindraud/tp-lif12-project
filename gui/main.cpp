@@ -112,10 +112,14 @@ void ConfigWidget::setState (SimulatorState state) {
 
 	programAddress->setEnabled (enableSettings);
 	programPort->setEnabled (enableSettings);
+	programUpdateRate->setEnabled (enableSettings);
+	programSamplingRate->setEnabled (enableSettings);
+	
 	programInit->setEnabled (enableSettings);
 	programStart->setEnabled (state == Paused);
 	programPause->setEnabled (state == Running || state == Paused);
 	programStop->setEnabled (state == Running || state == Paused);
+
 	mapName->setEnabled (enableSettings);
 	openFromFile->setEnabled (enableSettings);
 	cellSize->setEnabled (enableSettings);
@@ -136,7 +140,8 @@ void ConfigWidget::initClicked (void) {
 	if (mState == Stopped) {
 		setState (Initializing);
 		executor->init ( programAddress->text (), programPort->value (),
-				mapName->text (), cellSize->value ());
+				mapName->text (), cellSize->value (),
+				programUpdateRate->value (), programSamplingRate->value ());
 	}
 }
 

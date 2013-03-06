@@ -132,7 +132,8 @@ ExecuteAndProcessOutput::ExecuteAndProcessOutput () {
 
 void ExecuteAndProcessOutput::init (
 		QString program, int port,
-		QString mapFile, int cellSize) {
+		QString mapFile, int cellSize,
+		int updateRate, int samplingRate) {
 	// Load from file
 	QImage image (mapFile);
 
