@@ -17,9 +17,9 @@ class WireWorldMap {
 		WireWorldMap ();
 		~WireWorldMap ();
 
-		/* Size of internal map
+		/* Borders of internal map
 		 */
-		QSize getSize (void) const;
+		QRect getRect (void) const;
 	
 		/* Get map in raw format.
 		 * getRawMap returns a newly allocated buffer

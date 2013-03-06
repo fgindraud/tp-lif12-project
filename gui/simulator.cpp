@@ -27,7 +27,7 @@ static wireworld_message_t getNearestState (QRgb color) {
 WireWorldMap::WireWorldMap () {}
 WireWorldMap::~WireWorldMap () {}
 
-QSize WireWorldMap::getSize (void) const { return internalMap.size (); }
+QRect WireWorldMap::getRect (void) const { return internalMap.rect (); }
 
 quint32 WireWorldMap::getRawMapSize (void) const {
 	return wireworldFrameMessageSize (internalMap.width (), internalMap.height ());
@@ -53,7 +53,7 @@ wireworld_message_t * WireWorldMap::getRawMap (void) const {
 
 				// Update iterators, and init next word if needed as we use or-ing
 				bitIndex++;
-				if (bitIndex > 15) {
+				if (bitIndex == M_BIT_SIZE / C_BIT_SIZE) {
 					messageIndex++;
 					rawMap[messageIndex] = 0;
 					bitIndex = 0;
@@ -80,7 +80,7 @@ void WireWorldMap::updateMap (QPoint topLeft, QPoint bottomRight, wireworld_mess
 			
 			// Update counters
 			bitIndex++;
-			if (bitIndex > 15) {
+			if (bitIndex == M_BIT_SIZE / C_BIT_SIZE) {
 				messageIndex++;
 				bitIndex = 0;
 			}
@@ -272,8 +272,8 @@ void ExecuteAndProcessOutput::hasConnected (void) {
 	// If connected, send init request
 	wireworld_message_t message[4];
 	message[0] = R_INIT;
-	message[1] = mCellMap.getSize ().width ();
-	message[2] = mCellMap.getSize ().height ();
+	message[1] = mCellMap.getRect ().width ();
+	message[2] = mCellMap.getRect ().height ();
 	message[3] = mSamplingRate;
 	writeInternal (message, 4);
 
@@ -308,6 +308,7 @@ void ExecuteAndProcessOutput::canReadData (void) {
 				// Extract pixmap and add to queue
 				if (not mPixmapBuffer.pixmapReady (mCellMap.toImage ()))
 					abort ("Protocol error : credit not given");
+				
 				// Do not change state and requestedSize, message with no payload
 			} else {
 				abort ("Protocol error : unknown message type");
@@ -320,6 +321,7 @@ void ExecuteAndProcessOutput::canReadData (void) {
 			mPos1.setY (pos[1]);
 			mPos2.setX (pos[2]);
 			mPos2.setY (pos[3]);
+			
 			// Wait for data
 			mDecodingStep = RectUpdateWaitingData;
 			mRequestedDataSize = wireworldFrameMessageSize (mPos2.x () - mPos1.x (), mPos2.y () - mPos1.y ());
@@ -327,9 +329,15 @@ void ExecuteAndProcessOutput::canReadData (void) {
 			// Get data in a buffer
 			wireworld_message_t * buf = new wireworld_message_t [mRequestedDataSize];
 			readInternal (buf, mRequestedDataSize);
+
+			// Check update validity
+			if (not mCellMap.getRect ().contains (mPos1) || not mCellMap.getRect ().contains (mPos2))
+				abort ("Protocol error : update out of bounds");
+
 			// Apply rect update
 			mCellMap.updateMap (mPos1, mPos2, buf);
 			delete[] buf;
+			
 			// Return to wait message state
 			mDecodingStep = WaitingHeader;
 			mRequestedDataSize = 1;
