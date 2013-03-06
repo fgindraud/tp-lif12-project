@@ -26,10 +26,10 @@ int main (void) {
 /* Simulation */
 void perform_simulation (int sock) {
 	uint32_t xsize, ysize;
-	uint32_t dummy;
+	uint32_t sampling;
 	char * firstMap;
 
-	if (connectionWaitForInit (sock, &xsize, &ysize, &dummy, &firstMap) == 0) {
+	if (connectionWaitForInit (sock, &xsize, &ysize, &sampling, &firstMap) == 0) {
 		// Init double buffers with insulator borders
 		char * maps[2];
 		int j;
@@ -65,7 +65,9 @@ void perform_simulation (int sock) {
 				break;
 
 			// Compute new step
-			update_map (&updatedMap, maps, xsize, ysize);
+			uint32_t k;
+			for (k = 0; k < sampling; ++k)
+				update_map (&updatedMap, maps, xsize, ysize);
 
 			// Send new map
 			if (connectionSendFullUpdate (sock,

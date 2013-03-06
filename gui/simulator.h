@@ -48,7 +48,10 @@ class WireWorldMap {
 
 
 /*
- * 
+ * A complex buffer with timered pop and different modes.
+ * It handles timing control (including actions from buttons),
+ * and buffers multiple frames in advance to hide network latency
+ * (but it outputs them in the right order).
  */
 class PixmapBuffer : public QObject {
 	Q_OBJECT
