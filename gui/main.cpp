@@ -32,6 +32,18 @@ ConfigWidget::ConfigWidget (ExecuteAndProcessOutput * executorHandle) :
 	programPort->setToolTip ("Simulator port");
 	programConfig->addWidget (programPort);
 
+	programUpdateRate = new QSpinBox;
+	programUpdateRate->setRange (0, 10000);
+	programUpdateRate->setValue (1000);
+	programUpdateRate->setToolTip ("Minimum time between screen updates (msec)");
+	programConfig->addWidget (programUpdateRate);
+
+	programSamplingRate = new QSpinBox;
+	programSamplingRate->setRange (1, 10000);
+	programSamplingRate->setValue (1);
+	programSamplingRate->setToolTip ("Number of steps to compute between each screen updates (sampling rate)");
+	programConfig->addWidget (programSamplingRate);
+
 	programInit = new QPushButton (style.standardIcon (QStyle::SP_ArrowUp), QString ());
 	programInit->setToolTip ("Load data into simulator");
 	programConfig->addWidget (programInit);
@@ -64,7 +76,7 @@ ConfigWidget::ConfigWidget (ExecuteAndProcessOutput * executorHandle) :
 	wireworldMapConfig->addWidget (cellSize);
 
 	enableScaling = new QCheckBox ("Scaling");
-	enableScaling->setToolTip ("Scale image to window size, recommended for small examples but not for big ones");
+	enableScaling->setToolTip ("Scale image to window size, recommended for small examples");
 	enableScaling->setCheckState (Qt::Checked);
 	wireworldMapConfig->addWidget (enableScaling);
 

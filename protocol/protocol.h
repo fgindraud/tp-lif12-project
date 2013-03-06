@@ -23,10 +23,11 @@ typedef uint32_t wireworld_message_t;
  *******************************/
 
 /* Init message (initializes the simulation with the init cell map, doesn't start) :
- *	   id    : 1 [R_INIT]
- *	   xsize : 1
- *	   ysize : 1
- *	   frame : xsize * ysize * C_BIT_SIZE / M_BIT_SIZE + 1
+ *	   id       : 1 [R_INIT]
+ *	   xsize    : 1
+ *	   ysize    : 1
+ *	   sampling : 1
+ *	   frame    : xsize * ysize * C_BIT_SIZE / M_BIT_SIZE + 1
  */
 #define R_INIT 0u
 
@@ -45,12 +46,26 @@ typedef uint32_t wireworld_message_t;
  ******************************/
 
 /* The server should wait for connections, then wait for an init message when a connection is accepted.
+ * Then the server should wait for a R_FRAME request before starting to compute 'sampling' interations of
+ * the map (sampling is the parameter given in the R_INIT request).
+ * It will send the result to the gui, as a sequence of rectangle updates (updates of a rectangular portions
+ * of the map, possibly the whole map), terminated with an end-of-frame message.
  */
 
-/* TODO rectangles and more than 1 rectangle each time */
-/* Show a new state of the map "message" :
- *	   frame : xsize * ysize * C_BIT_SIZE / M_BIT_SIZE + 1
+/* Rectangle update message :
+ *	   id    : 1 [A_RECT_UPDATE]
+ *	   x1    : 1
+ *	   y1    : 1
+ *	   x2    : 1
+ *	   y2    : 1
+ *	   frame : (x2-x1) * (y2-y1) * C_BIT_SIZE / M_BIT_SIZE + 1
  */
+#define A_RECT_UPDATE 0u
+
+/* End of frame message :
+ *    id : 1 [A_FRAME_END]
+ */
+#define A_FRAME_END 1u
 
 /********************
  * Cell description *
