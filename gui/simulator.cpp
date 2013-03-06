@@ -30,7 +30,7 @@ WireWorldMap::~WireWorldMap () {}
 QSize WireWorldMap::getSize (void) const { return internalMap.size (); }
 
 quint32 WireWorldMap::getRawMapSize (void) const {
-	return internalMap.width () * internalMap.height () * C_BIT_SIZE / M_BIT_SIZE + 1;
+	return wireworldFrameMessageSize (internalMap.width (), internalMap.height ());
 }
 
 wireworld_message_t * WireWorldMap::getRawMap (void) const {
@@ -126,15 +126,17 @@ PixmapBuffer::PixmapBuffer () {
 
 void PixmapBuffer::reset (int maxCreditAllowed, int interval) {
 	pixmapQueue.clear ();
+	
 	timer.setInterval (interval);
-	maxCredits = maxCreditAllowed;
 	isInStepMode = true;
 
+	// Init credit system.
+	maxCredits = maxCreditAllowed;
 	emit hasCredit (maxCreditAllowed);
 }
 
 bool PixmapBuffer::pixmapReady (QPixmap pixmap) {
-	// Fail if maxCredits is not respected
+	// Check credit system is respected
 	if (pixmapQueue.size () == maxCredits)
 		return false;
 
@@ -147,7 +149,6 @@ bool PixmapBuffer::pixmapReady (QPixmap pixmap) {
 		outputPixmap ();
 		timer.start ();
 	}
-
 	return true;
 }
 
@@ -221,6 +222,10 @@ void ExecuteAndProcessOutput::init (
 	mUpdateRate = updateRate;
 	mSamplingRate = samplingRate;
 
+	// Init decoding automaton
+	mDecodingStep = WaitingHeader;
+	mRequestedDataSize = 1;
+
 	// Start Tcp
 	mSocket.connectToHost (host, port);
 }
@@ -274,13 +279,8 @@ void ExecuteAndProcessOutput::hasConnected (void) {
 
 	// Send map data
 	wireworld_message_t * data = mCellMap.getRawMap ();
-	if (data == 0) {
-		abort ("Alloc error");
-		return;
-	} else {
-		writeInternal (data, mCellMap.getRawMapSize ());
-		delete[] data;
-	}
+	writeInternal (data, mCellMap.getRawMapSize ());
+	delete[] data;
 
 	// Correctly initialized, inform gui
 	emit initialized ();
@@ -293,13 +293,54 @@ void ExecuteAndProcessOutput::hasConnected (void) {
 }
 
 void ExecuteAndProcessOutput::canReadData (void) {
-	// Add timer stuff TODO
+	// Run automaton until we do not have enough data to process
+	while ((quint32) mSocket.bytesAvailable () >= mRequestedDataSize * sizeof (wireworld_message_t)) {
+		if (mDecodingStep == WaitingHeader) {
+			// Read one message to determine type.
+			wireworld_message_t messageType;
+			readInternal (&messageType, 1);
+			
+			if (messageType == A_RECT_UPDATE) {
+				// Message with payload and more header info ; get complete header first
+				mDecodingStep = RectUpdateWaitingPos;
+				mRequestedDataSize = 4;
+			} else if (messageType == A_FRAME_END) {
+				// Extract pixmap and add to queue
+				if (not mPixmapBuffer.pixmapReady (mCellMap.toImage ()))
+					abort ("Protocol error : credit not given");
+				// Do not change state and requestedSize, message with no payload
+			} else {
+				abort ("Protocol error : unknown message type");
+			}
+		} else if (mDecodingStep == RectUpdateWaitingPos) {
+			// Get sizes
+			wireworld_message_t pos[4];
+			readInternal (pos, 4);
+			mPos1.setX (pos[0]);
+			mPos1.setY (pos[1]);
+			mPos2.setX (pos[2]);
+			mPos2.setY (pos[3]);
+			// Wait for data
+			mDecodingStep = RectUpdateWaitingData;
+			mRequestedDataSize = wireworldFrameMessageSize (mPos2.x () - mPos1.x (), mPos2.y () - mPos1.y ());
+		} else if (mDecodingStep == RectUpdateWaitingData) {
+			// Get data in a buffer
+			wireworld_message_t * buf = new wireworld_message_t [mRequestedDataSize];
+			readInternal (buf, mRequestedDataSize);
+			// Apply rect update
+			mCellMap.updateMap (mPos1, mPos2, buf);
+			delete[] buf;
+			// Return to wait message state
+			mDecodingStep = WaitingHeader;
+			mRequestedDataSize = 1;
+		}
+	}
 }
 
 /* Internal read/write */
 void ExecuteAndProcessOutput::writeInternal (
 		const wireworld_message_t * messages, quint32 nbMessages) {
-	wireworld_message_t * buffer = new wireworld_message_t[nbMessages];
+	wireworld_message_t * buffer = new wireworld_message_t [nbMessages];
 
 	// Convert endianness
 	for (quint32 i = 0; i < nbMessages; ++i)
@@ -327,7 +368,7 @@ void ExecuteAndProcessOutput::writeInternal (
 
 void ExecuteAndProcessOutput::readInternal (
 		wireworld_message_t * messages, quint32 nbMaxMessages) {
-	wireworld_message_t * buffer = new wireworld_message_t[nbMaxMessages];
+	wireworld_message_t * buffer = new wireworld_message_t [nbMaxMessages];
 
 	// Send all of it (qt should not block, it buffers instead)
 	char * it = (char *) buffer;

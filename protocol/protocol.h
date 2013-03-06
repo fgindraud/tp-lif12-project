@@ -92,5 +92,9 @@ typedef uint32_t wireworld_message_t;
  * | C15 | C14 | ... |  C2 |  C1 |  C0 |
  */
 
+static inline uint32_t wireworldFrameMessageSize (int w, int h) {
+	return w * h * C_BIT_SIZE / M_BIT_SIZE + 1;
+}
+
 #endif
 

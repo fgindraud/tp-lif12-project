@@ -125,8 +125,22 @@ class ExecuteAndProcessOutput : public QObject {
 		WireWorldMap mCellMap;
 		PixmapBuffer mPixmapBuffer;
 
+		// Temporarily store parameters
 		int mUpdateRate;
 		int mSamplingRate;
+
+		/* Store message decoding step
+		 */
+		enum DecodingStep {
+			WaitingHeader, RectUpdateWaitingPos, RectUpdateWaitingData
+		};
+
+		// Step we are in, and size of data needed to go further
+		DecodingStep mDecodingStep;
+		quint32 mRequestedDataSize;
+
+		// Specific data
+		QPoint mPos1, mPos2;
 };
 
 #endif
