@@ -127,12 +127,19 @@ int connectionWaitFrameRequest (int connSock) {
 	assert (connSock != -1);
 
 	wireworld_message_t message;
-	if (recvMessages (connSock, &message, 1) == 0 && message == R_FRAME) {
-		return 0;
+	int res = recvMessages (connSock, &message, 1);
+	if (res == 0) {
+		if (message == R_FRAME) {
+			return 0;
+		} else {
+			fprintf (stderr, "Expected R_FRAME message but got something else : %u\n", message);
+		}
+	} else if (res == 1) {
+		return 1;
 	} else {
 		fprintf (stderr, "Error while receiving R_FRAME request\n");
-		return -1;
 	}
+	return -1;
 }
 
 int connectionSendRectUpdate (int connSock,
@@ -201,11 +208,11 @@ static int recvMessages (int sock, wireworld_message_t * buffer, uint32_t count)
 	char * it = (char *) tmp_buf;
 	while (bytes_to_read > 0) {
 		int res = read (sock, it, bytes_to_read);
-		if (res <= 0) {
-			if (res == -1)
-				perror ("read");
-			else
-				fprintf (stderr, "Connection closed\n");
+		if (res == 0) {
+			free (tmp_buf);
+			return 1; // End of file
+		} else if (res == -1) {
+			perror ("read");
 			free (tmp_buf);
 			return -1;
 		}	
@@ -265,7 +272,7 @@ static void networkToCharMap (wireworld_message_t * networkMap, char * charMap,
 
 			// Update counters
 			bitIndex++;
-			if (bitIndex > M_BIT_SIZE / C_BIT_SIZE) {
+			if (bitIndex == M_BIT_SIZE / C_BIT_SIZE) {
 				messageIndex++;
 				bitIndex = 0;
 			}
@@ -293,7 +300,7 @@ void charToNetworkMap (wireworld_message_t * networkMap, char * charMap,
 
 			// Update counters, and init next word
 			bitIndex++;
-			if (bitIndex > M_BIT_SIZE / C_BIT_SIZE) {
+			if (bitIndex == M_BIT_SIZE / C_BIT_SIZE) {
 				messageIndex++;
 				networkMap[messageIndex] = 0;
 				bitIndex = 0;

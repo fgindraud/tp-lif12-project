@@ -56,6 +56,8 @@ void perform_simulation (int sock) {
 			for (x = 0; x < xsize; ++x)
 				*map (maps[0], x + 1, y + 1, xsize + 2) = *map (firstMap, x, y, xsize);
 
+		free (firstMap);
+
 		int updatedMap = 0;
 		while (1) {
 			// Wait R_FRAME

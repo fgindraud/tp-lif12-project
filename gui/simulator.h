@@ -20,6 +20,7 @@ class WireWorldMap {
 		/* Borders of internal map
 		 */
 		QRect getRect (void) const;
+		bool inBounds (const QPoint & point) const;
 	
 		/* Get map in raw format.
 		 * getRawMap returns a newly allocated buffer

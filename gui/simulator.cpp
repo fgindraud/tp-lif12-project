@@ -29,6 +29,11 @@ WireWorldMap::~WireWorldMap () {}
 
 QRect WireWorldMap::getRect (void) const { return internalMap.rect (); }
 
+bool WireWorldMap::inBounds (const QPoint & point) const {
+	return 0 <= point.x () && point.x () <= internalMap.width () &&
+		0 <= point.y () && point.y () <= internalMap.height ();
+}
+
 quint32 WireWorldMap::getRawMapSize (void) const {
 	return wireworldFrameMessageSize (internalMap.width (), internalMap.height ());
 }
@@ -331,7 +336,7 @@ void ExecuteAndProcessOutput::canReadData (void) {
 			readInternal (buf, mRequestedDataSize);
 
 			// Check update validity
-			if (not mCellMap.getRect ().contains (mPos1) || not mCellMap.getRect ().contains (mPos2))
+			if (not mCellMap.inBounds (mPos1) || not mCellMap.inBounds (mPos2))
 				abort ("Protocol error : update out of bounds");
 
 			// Apply rect update
