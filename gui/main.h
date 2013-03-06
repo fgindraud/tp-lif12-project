@@ -80,18 +80,18 @@ class WireWorldDrawZone : public QLabel {
 			setAlignment (Qt::AlignCenter);
 			setSizePolicy (QSizePolicy::Expanding, QSizePolicy::Expanding);
 
-			QObject::connect (executor, SIGNAL (redraw (const QImage &)),
-					this, SLOT (updateWireworld (const QImage &)));
+			QObject::connect (executor, SIGNAL (redraw (QPixmap)),
+					this, SLOT (updateWireworld (QPixmap)));
 		}
 		~WireWorldDrawZone () {}
 
 	public slots:
-		void updateWireworld (const QImage & image) {
+		void updateWireworld (QPixmap pixmap) {
 			// Avoid absurd resizes
-			setMinimumSize (image.size ());
+			setMinimumSize (pixmap.size ());
 
 			// Bufferise image
-			buffer = QPixmap::fromImage (image);
+			buffer = pixmap;
 			updateScreen ();
 		}
 

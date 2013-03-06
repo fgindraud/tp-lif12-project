@@ -22,6 +22,12 @@ typedef uint32_t wireworld_message_t;
  * Control (from gui to server) *
  *******************************/
 
+/* The gui will first open a connection, then send the init message,
+ * and a sequence of R_FRAME requests to control the server computing
+ * speed.
+ * The server should stop computing if the connection is closed.
+ */
+
 /* Init message (initializes the simulation with the init cell map, doesn't start) :
  *	   id       : 1 [R_INIT]
  *	   xsize    : 1
@@ -35,11 +41,6 @@ typedef uint32_t wireworld_message_t;
  *	   id : 1 [R_FRAME]
  */
 #define R_FRAME 1u
-
-/* Stop message (ends the simulation, you can close the connection and free structures) :
- *	   id : 1 [R_STOP]
- */
-#define R_STOP 2u
 
 /*******************************
  * Answer (from server to gui) *

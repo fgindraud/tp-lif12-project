@@ -31,11 +31,11 @@ class WireWorldMap {
 		 */
 		void updateMap (QPoint topLeft, QPoint bottomRight, wireworld_message_t * data);
 
-		/* Generates image from cell map.
-		 * Or load from image.
+		/* Generates a new pixmap from stored map.
+		 * Or load initial map from an image.
 		 */	
 		bool fromImage (const QImage & image, int cellSize = 1);
-		const QImage & toImage (void) const;
+		QPixmap toImage (void) const;
 
 	private:
 		/* Resets internalMap image.
@@ -45,8 +45,41 @@ class WireWorldMap {
 		QImage internalMap;
 };
 
+
 /*
- * Network and image generation.
+ * 
+ */
+class PixmapBuffer : public QObject {
+	Q_OBJECT
+
+	public:
+		PixmapBuffer ();
+
+		void reset (int maxCreditAllowed, int interval);
+		bool pixmapReady (QPixmap pixmap);
+		void start (void);
+		void stop (void);
+		void step (void);
+
+	signals:
+		void canRedraw (QPixmap pixmap);
+		void hasCredit (int credit);
+
+	private slots:
+		void timerTicked (void);
+
+	private:
+		void outputPixmap (void);
+
+		QQueue< QPixmap > pixmapQueue;
+		QTimer timer;
+
+		int maxCredits;
+		bool isInStepMode;
+};
+
+/*
+ * Network / Timing interaction
  */
 class ExecuteAndProcessOutput : public QObject {
 	Q_OBJECT
@@ -55,7 +88,9 @@ class ExecuteAndProcessOutput : public QObject {
 
 		ExecuteAndProcessOutput ();
 	
-		void init (QString program, int port, QString mapFile, int cellSize, int updateRate, int samplingRate);
+		void init (QString host, int port,
+				QString mapFile, int cellSize,
+				int updateRate, int samplingRate);
 
 		void start (void);
 		void pause (void);
@@ -71,20 +106,27 @@ class ExecuteAndProcessOutput : public QObject {
 		void connectionEnded (void);
 
 		// Called when a new frame is available
-		void redraw (const QImage & image);
+		void redraw (QPixmap pixmap);
 
 	private slots:
 		void onSocketError (void);
 		void hasConnected (void);
 		void canReadData (void);
 		void onSocketDisconnected (void);
+		void bufferSaidRedraw (QPixmap pixmap);
+		void sendFrameRequest (int nbRequests);
 
 	private:
 		void writeInternal (const wireworld_message_t * messages, quint32 nbMessages);
 		void readInternal (wireworld_message_t * messages, quint32 nbMessages);
+		void abort (QString error);
 
 		QTcpSocket mSocket;
 		WireWorldMap mCellMap;
+		PixmapBuffer mPixmapBuffer;
+
+		int mUpdateRate;
+		int mSamplingRate;
 };
 
 #endif

@@ -106,8 +106,8 @@ bool WireWorldMap::fromImage (const QImage & image, int cellSize) {
 	return true;
 }
 
-const QImage & WireWorldMap::toImage (void) const {
-	return internalMap;
+QPixmap WireWorldMap::toImage (void) const {
+	return QPixmap::fromImage (internalMap);
 }
 
 bool WireWorldMap::resetImage (QSize size) {
@@ -116,6 +116,66 @@ bool WireWorldMap::resetImage (QSize size) {
 
 	internalMap = QImage (size, QImage::Format_RGB32);
 	return true;
+}
+
+/* -------- PixmapBuffer ------- */
+PixmapBuffer::PixmapBuffer () {
+	QObject::connect (&timer, SIGNAL (timeout ()),
+			this, SLOT (timerTicked ()));
+}
+
+void PixmapBuffer::reset (int maxCreditAllowed, int interval) {
+	pixmapQueue.clear ();
+	timer.setInterval (interval);
+	maxCredits = maxCreditAllowed;
+	isInStepMode = true;
+
+	emit hasCredit (maxCreditAllowed);
+}
+
+bool PixmapBuffer::pixmapReady (QPixmap pixmap) {
+	// Fail if maxCredits is not respected
+	if (pixmapQueue.size () == maxCredits)
+		return false;
+
+	// Queue pixmap
+	bool wasEmpty = pixmapQueue.isEmpty ();
+	pixmapQueue.enqueue (pixmap);
+
+	// If we were in free run mode and stopped because buffer empty, restart timer
+	if (wasEmpty && not isInStepMode) {
+		outputPixmap ();
+		timer.start ();
+	}
+
+	return true;
+}
+
+void PixmapBuffer::start (void) {
+	isInStepMode = false;
+	timer.start ();
+}
+
+void PixmapBuffer::stop (void) {
+	isInStepMode = true;
+	timer.stop ();
+}
+
+void PixmapBuffer::step (void) {
+	if (isInStepMode && not pixmapQueue.empty ())
+		outputPixmap ();
+}
+
+void PixmapBuffer::timerTicked (void) {
+	if (not pixmapQueue.isEmpty ())
+		outputPixmap (); // If we have a pixmap, update screen
+	else
+		timer.stop (); // Otherwise we stop the timer until data arrives
+}
+
+void PixmapBuffer::outputPixmap (void) {
+	emit canRedraw (pixmapQueue.dequeue ());
+	emit hasCredit (1);
 }
 
 /* ------ ExecuteAndProcessOutput ------ */
@@ -128,10 +188,14 @@ ExecuteAndProcessOutput::ExecuteAndProcessOutput () {
 			this, SLOT (canReadData ()));
 	QObject::connect (&mSocket, SIGNAL (disconnected ()),
 			this, SLOT (onSocketDisconnected ()));
+	QObject::connect (&mPixmapBuffer, SIGNAL (canRedraw (QPixmap)),
+			this, SLOT (bufferSaidRedraw (QPixmap)));
+	QObject::connect (&mPixmapBuffer, SIGNAL (hasCredit (int)),
+			this, SLOT (sendFrameRequest (int)));
 }
 
 void ExecuteAndProcessOutput::init (
-		QString program, int port,
+		QString host, int port,
 		QString mapFile, int cellSize,
 		int updateRate, int samplingRate) {
 	// Load from file
@@ -143,61 +207,76 @@ void ExecuteAndProcessOutput::init (
 
 	// Check loading
 	if (image.isNull ()) {
-		QString errorText = QString ("Unable to load file '%1'").arg (mapFile);
-		emit errored (errorText);
+		abort (QString ("Unable to load file '%1'").arg (mapFile));
 		return;
 	}
 
 	// Load image into buffer
 	if (not mCellMap.fromImage (image, cellSize)) {
-		emit errored ("Unable to extract a map from image");
+		abort ("Unable to extract a map from image");
 		return;
 	}
 
+	// Save parameters for later initialization
+	mUpdateRate = updateRate;
+	mSamplingRate = samplingRate;
+
 	// Start Tcp
-	mSocket.connectToHost (program, port);
+	mSocket.connectToHost (host, port);
 }
 
-/* Little messages */
+/* Execution control functions */
 void ExecuteAndProcessOutput::start (void) {
-	//wireworld_message_t message = R_START;
-	//writeInternal (&message, 1);
+	mPixmapBuffer.start ();
 }
 
 void ExecuteAndProcessOutput::pause (void) {
-	//wireworld_message_t message = R_PAUSE;
-	//writeInternal (&message, 1);
+	mPixmapBuffer.stop ();
 }
 
 void ExecuteAndProcessOutput::step (void) {
-	//wireworld_message_t message = R_STEP;
-	//writeInternal (&message, 1);
+	mPixmapBuffer.step ();
 }
 
 void ExecuteAndProcessOutput::stop (void) {
-	//wireworld_message_t message = R_STOP;
-	//writeInternal (&message, 1);
+	mPixmapBuffer.stop ();
 	mSocket.close ();
 }
 
 void ExecuteAndProcessOutput::onSocketError (void) {
-	emit errored ("Socket error : " + mSocket.errorString ());
-	mSocket.abort ();
+	abort ("Socket error : " + mSocket.errorString ());
+}
+
+void ExecuteAndProcessOutput::onSocketDisconnected (void) {
+	// Signal gui if connection has been closed
+	emit connectionEnded ();
+}
+
+void ExecuteAndProcessOutput::bufferSaidRedraw (QPixmap pixmap) {
+	// Propagate signal
+	emit redraw (pixmap);
+}
+
+void ExecuteAndProcessOutput::sendFrameRequest (int nbRequests) {
+	wireworld_message_t message = R_FRAME;
+	for (int i = 0; i < nbRequests; ++i)
+		writeInternal (&message, 1);
 }
 
 void ExecuteAndProcessOutput::hasConnected (void) {
 	// If connected, send init request
-	wireworld_message_t message[3];
+	wireworld_message_t message[4];
 	message[0] = R_INIT;
 	message[1] = mCellMap.getSize ().width ();
 	message[2] = mCellMap.getSize ().height ();
-	writeInternal (message, 3);
+	message[3] = mSamplingRate;
+	writeInternal (message, 4);
 
 	// Send map data
 	wireworld_message_t * data = mCellMap.getRawMap ();
 	if (data == 0) {
-		emit errored ("Alloc error");
-		mSocket.abort ();
+		abort ("Alloc error");
+		return;
 	} else {
 		writeInternal (data, mCellMap.getRawMapSize ());
 		delete[] data;
@@ -208,26 +287,13 @@ void ExecuteAndProcessOutput::hasConnected (void) {
 
 	// And force redraw of initial map state.
 	emit redraw (mCellMap.toImage ());
+
+	// Then start reception buffer with a buffer of size 5
+	mPixmapBuffer.reset (5, mUpdateRate);
 }
 
 void ExecuteAndProcessOutput::canReadData (void) {
 	// Add timer stuff TODO
-	
-	// Wait for a complete frame
-	quint32 frameSize = mCellMap.getRawMapSize () * sizeof (wireworld_message_t);
-
-	// Read all pending frames
-	//while (mSocket.bytesAvailable () >= frameSize) {
-	//	readInternal (mCellMap.getCellMapContainer (), mCellMap.getCellMapMessageSize ());
-	//}
-
-	// Only show the last one
-	emit redraw (mCellMap.toImage ());
-}
-
-void ExecuteAndProcessOutput::onSocketDisconnected (void) {
-	// Signal gui if connection has been closed
-	emit connectionEnded ();
 }
 
 /* Internal read/write */
@@ -247,8 +313,7 @@ void ExecuteAndProcessOutput::writeInternal (
 
 		// On error, abort connection.
 		if (sent == -1) {
-			emit errored ("Write error : " + mSocket.errorString ());
-			mSocket.abort ();
+			abort ("Write error : " + mSocket.errorString ());
 			return;
 		}
 
@@ -271,8 +336,7 @@ void ExecuteAndProcessOutput::readInternal (
 		qint64 read = mSocket.read (it, bytesToRead);
 		if (read == -1) {
 			// On error, abort connection
-			emit errored ("Read error : " + mSocket.errorString ());
-			mSocket.abort ();
+			abort ("Read error : " + mSocket.errorString ());
 			return;
 		} else if (read == 0) {
 			// If no more data, terminate connection peacefully
@@ -291,3 +355,10 @@ void ExecuteAndProcessOutput::readInternal (
 
 	delete[] buffer;
 }
+
+void ExecuteAndProcessOutput::abort (QString error) {
+	emit errored (error);
+	mSocket.abort ();
+	mPixmapBuffer.stop ();
+}
+
