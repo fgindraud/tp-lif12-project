@@ -53,6 +53,10 @@ class ConfigWidget : public QGroupBox {
 		QHBoxLayout * programConfig;
 		QLineEdit * programAddress;
 		QSpinBox * programPort;
+
+		QSpinBox * programSamplingRate; // TODO
+		QSpinBox * programUpdateRate; // TODO
+
 		QPushButton * programInit;
 		QPushButton * programStart;
 		QPushButton * programPause;
@@ -76,13 +80,13 @@ class WireWorldDrawZone : public QLabel {
 			setAlignment (Qt::AlignCenter);
 			setSizePolicy (QSizePolicy::Expanding, QSizePolicy::Expanding);
 
-			QObject::connect (executor, SIGNAL (redraw (QImage)),
-					this, SLOT (updateWireworld (QImage)));
+			QObject::connect (executor, SIGNAL (redraw (const QImage &)),
+					this, SLOT (updateWireworld (const QImage &)));
 		}
 		~WireWorldDrawZone () {}
 
 	public slots:
-		void updateWireworld (QImage image) {
+		void updateWireworld (const QImage & image) {
 			// Avoid absurd resizes
 			setMinimumSize (image.size ());
 

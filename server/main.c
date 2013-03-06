@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <signal.h>
 
-#include "../protocol.h"
+#include "../protocol/protocol.h"
 
 /* Config */
 #define PORT 8000

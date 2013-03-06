@@ -12,8 +12,8 @@
  *		field : s [v]
  * ---------
  *
- *  Means that the message of type "dummy" is composed of one field, with a size of s
- *  wireworld_message_t blocks, and a specific value v.
+ *  Means that the message of type "dummy" is composed of one field named "field",
+ *  with a size of s wireworld_message_t blocks, and a specific value v.
  */
 typedef uint32_t wireworld_message_t;
 #define M_BIT_SIZE 32
@@ -30,37 +30,24 @@ typedef uint32_t wireworld_message_t;
  */
 #define R_INIT 0u
 
-/* Start message (start or restart the simulation) :
- *	   id : 1 [R_START]
+/* Request frame message (ask the simulator to compute and send the next frame) :
+ *	   id : 1 [R_FRAME]
  */
-#define R_START 1u
+#define R_FRAME 1u
 
-/* Pause message (temporarily halt the simulation, until a start command is received) :
- *	   id : 1 [R_PAUSE]
- */
-#define R_PAUSE 2u
-
-/* Step message (in pause mode only ; computes one step of the simulation) :
- *	   id : 1 [R_STEP]
- */
-#define R_STEP 3u
-
-/* Stop message (stops the simulation, you can close the connection) :
+/* Stop message (ends the simulation, you can close the connection and free structures) :
  *	   id : 1 [R_STOP]
  */
-#define R_STOP 4u
+#define R_STOP 2u
 
 /*******************************
  * Answer (from server to gui) *
  ******************************/
 
-/* The server should wait for connections, then wait for init requests.
- * It will then send frames after frames to the server, without any header.
- * The server is responsible for the timing control, and should answer correctly to pause/step/resume requests.
- * It is a good practice to send a first frame (copy of the init map) after the init step ;
- * this will allow to check if the format was respected (and is cool for the eye).
+/* The server should wait for connections, then wait for an init message when a connection is accepted.
  */
 
+/* TODO rectangles and more than 1 rectangle each time */
 /* Show a new state of the map "message" :
  *	   frame : xsize * ysize * C_BIT_SIZE / M_BIT_SIZE + 1
  */

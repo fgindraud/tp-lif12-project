@@ -7,40 +7,42 @@
 #include <QPixmap>
 #include <QtCore>
 
-#include "../protocol.h"
+#include "protocol.h"
 
 /*
- * Translator class for cell array <-> image
+ * Hold the wireworld cell map, and allow translation from/to image
  */
 class WireWorldMap {
 	public:
 		WireWorldMap ();
 		~WireWorldMap ();
 
-		/* Image size to which will be interpreted raw data
-		 * Setting it will reallocate internalCellMap
-		 * Returns false if size is not valid, true if it worked
+		/* Size of internal map
 		 */
-		bool setSize (QSize size);
 		QSize getSize (void) const;
-
-		/*	Internal cell map (native byte order)
-		 * Will store cell data.
-		 * getCellMapMessageSize : size of internal map is number of wireworld_message_t.
-		 */
-		wireworld_message_t * getCellMapContainer (void);
-		quint32 getCellMapMessageSize (void) const;
 	
-		/* Generates image from cell map
-		 * Or load from image (and set size and data)
+		/* Get map in raw format.
+		 * getRawMap returns a newly allocated buffer
+		 */
+		wireworld_message_t * getRawMap (void) const;
+		quint32 getRawMapSize (void) const;
+
+		/* Update rectangle with raw format
+		 */
+		void updateMap (QPoint topLeft, QPoint bottomRight, wireworld_message_t * data);
+
+		/* Generates image from cell map.
+		 * Or load from image.
 		 */	
-		bool fromImage (QImage & image, int cellSize = 1);
-		QImage toImage (void) const;
+		bool fromImage (const QImage & image, int cellSize = 1);
+		const QImage & toImage (void) const;
 
 	private:
-		QSize imageSize;
-		wireworld_message_t * internalCellMap;
-		quint32 messageSize;
+		/* Resets internalMap image.
+		 */
+		bool resetImage (QSize size);
+
+		QImage internalMap;
 };
 
 /*
@@ -69,7 +71,7 @@ class ExecuteAndProcessOutput : public QObject {
 		void connectionEnded (void);
 
 		// Called when a new frame is available
-		void redraw (QImage image);
+		void redraw (const QImage & image);
 
 	private slots:
 		void onSocketError (void);

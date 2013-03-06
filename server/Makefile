@@ -1,4 +1,4 @@
-CFLAGS = -Wall -Wextra -O2 -g
+CFLAGS = -Wall -Wextra -O2
 EXEC = server
 
 .PHONY: all clean mrproper

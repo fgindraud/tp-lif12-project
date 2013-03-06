@@ -24,84 +24,60 @@ static wireworld_message_t getNearestState (QRgb color) {
 }
 
 /* ------ WireWorldMap ------ */
-WireWorldMap::WireWorldMap () : internalCellMap (0) {
+WireWorldMap::WireWorldMap () {}
+WireWorldMap::~WireWorldMap () {}
+
+QSize WireWorldMap::getSize (void) const { return internalMap.size (); }
+
+quint32 WireWorldMap::getRawMapSize (void) const {
+	return internalMap.width () * internalMap.height () * C_BIT_SIZE / M_BIT_SIZE + 1;
 }
 
-WireWorldMap::~WireWorldMap () {
-	if (internalCellMap != 0) {
-		delete[] internalCellMap;
-		internalCellMap = 0;
-	}
-}
+wireworld_message_t * WireWorldMap::getRawMap (void) const {
+	wireworld_message_t * rawMap = new wireworld_message_t [getRawMapSize ()];
+	if (rawMap != 0) {
+		// Extract map from image by matching colors with the palette
+		
+		// Iterators over bit-packed structure
+		quint32 messageIndex = 0;
+		int bitIndex = 0;
 
-bool WireWorldMap::setSize (QSize size) {
-	imageSize = size;
-	if (internalCellMap != 0) {
-		delete[] internalCellMap;
-		internalCellMap = 0;
-	}
+		rawMap[0] = 0;
+		for (int i = 0; i < internalMap.height (); ++i) {
+			const QRgb * lineColors = (const QRgb *) internalMap.constScanLine (i);
+			for (int j = 0; j < internalMap.width (); ++j) {
+				// Set value
+				rawMap[messageIndex] |=
+					getNearestState (lineColors[j]) <<
+					(C_BIT_SIZE * bitIndex);
 
-	if (size.width () == 0 || size.height () == 0)
-		return false;
-
-	// Compute message size of cell map
-	messageSize = imageSize.width () * imageSize.height () * C_BIT_SIZE / M_BIT_SIZE + 1;
-	internalCellMap = new wireworld_message_t [messageSize];
-	return true;
-}
-
-QSize WireWorldMap::getSize (void) const { return imageSize; }
-wireworld_message_t * WireWorldMap::getCellMapContainer (void) { return internalCellMap; }
-quint32 WireWorldMap::getCellMapMessageSize (void) const { return messageSize; }
-
-bool WireWorldMap::fromImage (QImage & image, int cellSize) {
-	// Check size is valid
-	if (not setSize (QSize (image.width () / cellSize, image.height () / cellSize)))
-		return false;
-
-	// Extract map from image by matching colors
-	quint32 messageIndex = 0;
-	int bitIndex = 0;
-	
-	internalCellMap[0] = 0;
-	for (int i = 0; i < imageSize.height (); ++i) {
-		const QRgb * lineColors = (const QRgb *) image.constScanLine (i);
-		for (int j = 0; j < imageSize.width (); ++j) {
-			// Set value
-			internalCellMap[messageIndex] |=
-				getNearestState (lineColors[j]) <<
-				(C_BIT_SIZE * bitIndex);
-
-			// Update counters, and init next word
-			bitIndex++;
-			if (bitIndex > 15) {
-				messageIndex++;
-				internalCellMap[messageIndex] = 0;
-				bitIndex = 0;
+				// Update iterators, and init next word if needed as we use or-ing
+				bitIndex++;
+				if (bitIndex > 15) {
+					messageIndex++;
+					rawMap[messageIndex] = 0;
+					bitIndex = 0;
+				}
 			}
 		}
 	}
-
-	return true;
+	return rawMap;
 }
 
-QImage WireWorldMap::toImage (void) const {
-	if (internalCellMap == 0)
-		return QImage ();
-
-	// Create new image
-	QImage newImage (imageSize, QImage::Format_RGB32);
-
-	// Fill it
+void WireWorldMap::updateMap (QPoint topLeft, QPoint bottomRight, wireworld_message_t * data) {
+	// Iterators in bit-packed structure
 	quint32 messageIndex = 0;
 	int bitIndex = 0;
-	for (int i = 0; i < imageSize.height (); ++i) {
-		QRgb * lineColors = (QRgb *) newImage.scanLine (i);
-		for (int j = 0; j < imageSize.width (); ++j) {
+
+	// Update only rectangle
+	for (int i = topLeft.y (); i < bottomRight.y (); ++i) {
+		QRgb * lineColors = (QRgb *) internalMap.scanLine (i);
+		for (int j = topLeft.x (); j < bottomRight.x (); ++j) {
 			// Set value
 			wireworld_message_t cellValue = C_BIT_MASK & 
-				(internalCellMap[messageIndex] >> (C_BIT_SIZE * bitIndex));
+				(data[messageIndex] >> (C_BIT_SIZE * bitIndex));
 			lineColors[j] = wireworldColors[cellValue];
+			
 			// Update counters
 			bitIndex++;
 			if (bitIndex > 15) {
@@ -110,8 +86,36 @@ QImage WireWorldMap::toImage (void) const {
 			}
 		}
 	}
+}
 
-	return newImage;
+bool WireWorldMap::fromImage (const QImage & image, int cellSize) {
+	// Check size is valid
+	if (not resetImage (QSize (image.width () / cellSize, image.height () / cellSize)))
+		return false;
+
+	// Fill image with the sampled content of the source image (sampling factor : cellSize)
+	// Also format colors to the 4 color used
+	for (int i = 0; i < internalMap.height (); ++i) {
+		QRgb * toLineColors = (QRgb *) internalMap.scanLine (i);
+		const QRgb * fromLineColors = (const QRgb *) image.constScanLine (i * cellSize);
+		for (int j = 0; j < internalMap.width (); ++j) {
+			toLineColors[j] = wireworldColors[getNearestState (fromLineColors[j * cellSize])];
+		}
+	}
+
+	return true;
+}
+
+const QImage & WireWorldMap::toImage (void) const {
+	return internalMap;
+}
+
+bool WireWorldMap::resetImage (QSize size) {
+	if (size.width () == 0 || size.height () == 0)
+		return false;
+
+	internalMap = QImage (size, QImage::Format_RGB32);
+	return true;
 }
 
 /* ------ ExecuteAndProcessOutput ------ */
@@ -155,23 +159,23 @@ void ExecuteAndProcessOutput::init (
 
 /* Little messages */
 void ExecuteAndProcessOutput::start (void) {
-	wireworld_message_t message = R_START;
-	writeInternal (&message, 1);
+	//wireworld_message_t message = R_START;
+	//writeInternal (&message, 1);
 }
 
 void ExecuteAndProcessOutput::pause (void) {
-	wireworld_message_t message = R_PAUSE;
-	writeInternal (&message, 1);
+	//wireworld_message_t message = R_PAUSE;
+	//writeInternal (&message, 1);
 }
 
 void ExecuteAndProcessOutput::step (void) {
-	wireworld_message_t message = R_STEP;
-	writeInternal (&message, 1);
+	//wireworld_message_t message = R_STEP;
+	//writeInternal (&message, 1);
 }
 
 void ExecuteAndProcessOutput::stop (void) {
-	wireworld_message_t message = R_STOP;
-	writeInternal (&message, 1);
+	//wireworld_message_t message = R_STOP;
+	//writeInternal (&message, 1);
 	mSocket.close ();
 }
 
@@ -189,26 +193,35 @@ void ExecuteAndProcessOutput::hasConnected (void) {
 	writeInternal (message, 3);
 
 	// Send map data
-	writeInternal (mCellMap.getCellMapContainer (), mCellMap.getCellMapMessageSize ());
-	
+	wireworld_message_t * data = mCellMap.getRawMap ();
+	if (data == 0) {
+		emit errored ("Alloc error");
+		mSocket.abort ();
+	} else {
+		writeInternal (data, mCellMap.getRawMapSize ());
+		delete[] data;
+	}
+
+	// Correctly initialized, inform gui
 	emit initialized ();
+
+	// And force redraw of initial map state.
+	emit redraw (mCellMap.toImage ());
 }
 
 void ExecuteAndProcessOutput::canReadData (void) {
-	// Wait for a complete frame
-	quint32 frameSize = mCellMap.getCellMapMessageSize () * sizeof (wireworld_message_t);
+	// Add timer stuff TODO
 	
+	// Wait for a complete frame
+	quint32 frameSize = mCellMap.getRawMapSize () * sizeof (wireworld_message_t);
+
 	// Read all pending frames
-	while (mSocket.bytesAvailable () >= frameSize) {
-		readInternal (mCellMap.getCellMapContainer (), mCellMap.getCellMapMessageSize ());
-	}
+	//while (mSocket.bytesAvailable () >= frameSize) {
+	//	readInternal (mCellMap.getCellMapContainer (), mCellMap.getCellMapMessageSize ());
+	//}
 
 	// Only show the last one
 	emit redraw (mCellMap.toImage ());
-
-	/* We do not control the timing, so we flush all frames we can.
-	 * The server should ensure that frames are sent at the right timing.
-	 */
 }
 
 void ExecuteAndProcessOutput::onSocketDisconnected (void) {
@@ -220,7 +233,7 @@ void ExecuteAndProcessOutput::onSocketDisconnected (void) {
 void ExecuteAndProcessOutput::writeInternal (
 		const wireworld_message_t * messages, quint32 nbMessages) {
 	wireworld_message_t * buffer = new wireworld_message_t[nbMessages];
-	
+
 	// Convert endianness
 	for (quint32 i = 0; i < nbMessages; ++i)
 		buffer[i] = qToBigEndian (messages[i]);
@@ -249,7 +262,7 @@ void ExecuteAndProcessOutput::writeInternal (
 void ExecuteAndProcessOutput::readInternal (
 		wireworld_message_t * messages, quint32 nbMaxMessages) {
 	wireworld_message_t * buffer = new wireworld_message_t[nbMaxMessages];
-	
+
 	// Send all of it (qt should not block, it buffers instead)
 	char * it = (char *) buffer;
 	qint64 bytesToRead = nbMaxMessages * sizeof (wireworld_message_t);

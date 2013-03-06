@@ -60,10 +60,11 @@ ConfigWidget::ConfigWidget (ExecuteAndProcessOutput * executorHandle) :
 	cellSize = new QSpinBox;
 	cellSize->setRange (1, 300);
 	cellSize->setValue (1);
-	cellSize->setToolTip ("Size of cells in the image");
+	cellSize->setToolTip ("Size of cells in the loaded image");
 	wireworldMapConfig->addWidget (cellSize);
 
 	enableScaling = new QCheckBox ("Scaling");
+	enableScaling->setToolTip ("Scale image to window size, recommended for small examples but not for big ones");
 	enableScaling->setCheckState (Qt::Checked);
 	wireworldMapConfig->addWidget (enableScaling);
 
