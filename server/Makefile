@@ -1,12 +1,12 @@
-CFLAGS = -Wall -Wextra -O2
+CFLAGS = -Wall -Wextra -O2 
 EXEC = server
 
 .PHONY: all clean mrproper
 
 all: $(EXEC)
 
-$(EXEC): main.c ../protocol.h
-	gcc $(CFLAGS) $< -o $@
+$(EXEC): server.c main.c server.h ../protocol/protocol.h
+	gcc $(CFLAGS) $^ -o $@
 
 clean:
 
