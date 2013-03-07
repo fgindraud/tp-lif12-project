@@ -179,9 +179,16 @@ void PixmapBuffer::start (void) {
 	// Get out of step mode
 	isInStepMode = false;
 
-	// Restarts timer if we need it
-	if (not isFullSpeed)
+	if (isFullSpeed) {
+		// Flush all data stored in buffer (redraws), to allow the redraw-on-frame-reception
+		// to work (if we do not do this, we are blocked as the buffer might be full and no credit
+		// is given).
+		while (not pixmapQueue.isEmpty ())
+			outputPixmap ();
+	} else {
+		// Restarts timer if we need it
 		timer.start ();
+	}
 }
 
 void PixmapBuffer::stop (void) {

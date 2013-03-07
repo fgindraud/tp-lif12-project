@@ -39,7 +39,7 @@ ConfigWidget::ConfigWidget (ExecuteAndProcessOutput * executorHandle) :
 	programConfig->addWidget (programUpdateRate);
 
 	programSamplingRate = new QSpinBox;
-	programSamplingRate->setRange (1, 10000);
+	programSamplingRate->setRange (1, 1000000);
 	programSamplingRate->setValue (1);
 	programSamplingRate->setToolTip ("Number of steps to compute between each screen updates (sampling rate)");
 	programConfig->addWidget (programSamplingRate);
