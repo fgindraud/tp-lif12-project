@@ -26,6 +26,9 @@ class ConfigWidget : public QGroupBox {
 
 		ConfigWidget (ExecuteAndProcessOutput * executorHandle);
 
+	signals:
+		void requestSaveToFile (QString file);
+
 	private slots:
 		void setState (SimulatorState state);
 
@@ -88,6 +91,10 @@ class WireWorldDrawZone : public QLabel {
 			// Bufferise image
 			buffer = pixmap;
 			updateScreen ();
+		}
+
+		void saveBuffer (QString fileName) {
+			buffer.save (fileName);
 		}
 
 	private:

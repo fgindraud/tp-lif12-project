@@ -270,9 +270,6 @@ void ExecuteAndProcessOutput::init (
 		return;
 	}
 	
-	// And force redraw of initial map state.
-	emit redraw (mCellMap.toImage ());
-
 	// Save parameters for later initialization
 	mUpdateRate = updateRate;
 	mSamplingRate = samplingRate;
@@ -339,6 +336,9 @@ void ExecuteAndProcessOutput::hasConnected (void) {
 
 	// Correctly initialized, inform gui
 	emit initialized ();
+	
+	// And force redraw of initial map state.
+	emit redraw (mCellMap.toImage ());
 
 	// Then start reception buffer with a buffer of size 5
 	mPixmapBuffer.reset (5, mUpdateRate);

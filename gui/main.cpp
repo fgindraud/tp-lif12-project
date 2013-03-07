@@ -34,7 +34,7 @@ ConfigWidget::ConfigWidget (ExecuteAndProcessOutput * executorHandle) :
 
 	programUpdateRate = new QSpinBox;
 	programUpdateRate->setRange (0, 10000);
-	programUpdateRate->setValue (1000);
+	programUpdateRate->setValue (500);
 	programUpdateRate->setToolTip ("Minimum time between screen updates (msec)");
 	programConfig->addWidget (programUpdateRate);
 
@@ -70,7 +70,7 @@ ConfigWidget::ConfigWidget (ExecuteAndProcessOutput * executorHandle) :
 	wireworldMapConfig->addWidget (openFromFile);
 
 	cellSize = new QSpinBox;
-	cellSize->setRange (1, 300);
+	cellSize->setRange (1, 1000);
 	cellSize->setValue (1);
 	cellSize->setToolTip ("Size of cells in the loaded image");
 	wireworldMapConfig->addWidget (cellSize);
@@ -84,6 +84,8 @@ ConfigWidget::ConfigWidget (ExecuteAndProcessOutput * executorHandle) :
 	// Signals
 	QObject::connect (openFromFile, SIGNAL (clicked ()),
 			this, SLOT (openFile ()));
+	QObject::connect (saveToFile, SIGNAL (clicked ()),
+			this, SLOT (saveFile ()));
 
 	QObject::connect (programInit, SIGNAL (clicked ()),
 			this, SLOT (initClicked ()));
@@ -130,7 +132,12 @@ void ConfigWidget::openFile (void) {
 		mapName->setText (file);
 }
 
-void ConfigWidget::saveFile (void) {	
+void ConfigWidget::saveFile (void) {
+	QString file = QFileDialog::getSaveFileName (
+			this, "Save Image", QDir::currentPath (),
+			"Images (*.png *.jpg *.xpm *.gif)");
+	if (file != QString ())
+		emit requestSaveToFile (file);
 }
 
 void ConfigWidget::initClicked (void) {
@@ -190,6 +197,9 @@ int main (int argc, char * argv[]) {
 
 	WireWorldDrawZone * wireworldDrawer = new WireWorldDrawZone (executor);
 	mainLayout->addWidget (wireworldDrawer, 1);
+
+	QObject::connect (configWidget, SIGNAL (requestSaveToFile (QString)),
+			wireworldDrawer, SLOT (saveBuffer (QString)));
 
 	window->show ();
 	return app.exec ();
