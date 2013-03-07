@@ -30,6 +30,7 @@ class ConfigWidget : public QGroupBox {
 		void setState (SimulatorState state);
 
 		void openFile (void);
+		void saveFile (void);
 		void initClicked (void);
 		void playClicked (void);
 		void pauseClicked (void);
@@ -61,6 +62,7 @@ class ConfigWidget : public QGroupBox {
 		QLineEdit * mapName;
 		QPushButton * openFromFile;
 		QSpinBox * cellSize;
+		QPushButton * saveToFile;
 };
 
 /*

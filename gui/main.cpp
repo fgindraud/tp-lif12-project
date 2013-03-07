@@ -65,7 +65,7 @@ ConfigWidget::ConfigWidget (ExecuteAndProcessOutput * executorHandle) :
 	mapName->setPlaceholderText ("Map file name");
 	wireworldMapConfig->addWidget (mapName, 1);
 
-	openFromFile = new QPushButton (style.standardIcon (QStyle::SP_DirIcon), QString ());
+	openFromFile = new QPushButton (style.standardIcon (QStyle::SP_DialogOpenButton), QString ());
 	openFromFile->setToolTip ("Open...");
 	wireworldMapConfig->addWidget (openFromFile);
 
@@ -74,6 +74,10 @@ ConfigWidget::ConfigWidget (ExecuteAndProcessOutput * executorHandle) :
 	cellSize->setValue (1);
 	cellSize->setToolTip ("Size of cells in the loaded image");
 	wireworldMapConfig->addWidget (cellSize);
+
+	saveToFile = new QPushButton (style.standardIcon (QStyle::SP_DialogSaveButton), QString ());
+	saveToFile->setToolTip ("Save...");
+	wireworldMapConfig->addWidget (saveToFile);
 
 	setState (Stopped);
 
@@ -115,6 +119,7 @@ void ConfigWidget::setState (SimulatorState state) {
 	mapName->setEnabled (enableSettings);
 	openFromFile->setEnabled (enableSettings);
 	cellSize->setEnabled (enableSettings);
+	saveToFile->setEnabled (enableSettings || state == Paused);
 }
 
 void ConfigWidget::openFile (void) {
@@ -123,6 +128,9 @@ void ConfigWidget::openFile (void) {
 			"Images (*.png *.jpg *.xpm *.gif)");
 	if (file != QString ())
 		mapName->setText (file);
+}
+
+void ConfigWidget::saveFile (void) {	
 }
 
 void ConfigWidget::initClicked (void) {

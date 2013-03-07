@@ -93,7 +93,6 @@ class ExecuteAndProcessOutput : public QObject {
 	Q_OBJECT
 
 	public:
-
 		ExecuteAndProcessOutput ();
 	
 		void init (QString host, int port,

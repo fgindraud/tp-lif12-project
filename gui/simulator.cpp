@@ -7,7 +7,7 @@ static QRgb wireworldColors[] = {
 	qRgb (0x00, 0x00, 0xA0)
 };
 
-static wireworld_message_t getNearestState (QRgb color) {
+static int getNearestState (QRgb color) {
 	int minDist = 10000;
 	int minIndex = -1;
 	for (int i = 0; i < 4; ++i) {
@@ -98,13 +98,18 @@ bool WireWorldMap::fromImage (const QImage & image, int cellSize) {
 	if (not resetImage (QSize (image.width () / cellSize, image.height () / cellSize)))
 		return false;
 
+	int cellMidOffset = cellSize / 2;
+
 	// Fill image with the sampled content of the source image (sampling factor : cellSize)
 	// Also format colors to the 4 color used
 	for (int i = 0; i < internalMap.height (); ++i) {
-		QRgb * toLineColors = (QRgb *) internalMap.scanLine (i);
-		const QRgb * fromLineColors = (const QRgb *) image.constScanLine (i * cellSize);
+		QRgb * toLineColors =
+			reinterpret_cast< QRgb * > (internalMap.scanLine (i));
+		const QRgb * fromLineColors = 
+			reinterpret_cast< const QRgb * > (image.constScanLine (i * cellSize + cellMidOffset));
 		for (int j = 0; j < internalMap.width (); ++j) {
-			toLineColors[j] = wireworldColors[getNearestState (fromLineColors[j * cellSize])];
+			int state = getNearestState (fromLineColors[j * cellSize + cellMidOffset]);
+			toLineColors[j] = wireworldColors[state];
 		}
 	}
 
@@ -264,6 +269,9 @@ void ExecuteAndProcessOutput::init (
 		abort ("Unable to extract a map from image");
 		return;
 	}
+	
+	// And force redraw of initial map state.
+	emit redraw (mCellMap.toImage ());
 
 	// Save parameters for later initialization
 	mUpdateRate = updateRate;
@@ -332,9 +340,6 @@ void ExecuteAndProcessOutput::hasConnected (void) {
 	// Correctly initialized, inform gui
 	emit initialized ();
 
-	// And force redraw of initial map state.
-	emit redraw (mCellMap.toImage ());
-
 	// Then start reception buffer with a buffer of size 5
 	mPixmapBuffer.reset (5, mUpdateRate);
 }
@@ -371,7 +376,9 @@ void ExecuteAndProcessOutput::canReadData (void) {
 
 			// Wait for data
 			mDecodingStep = RectUpdateWaitingData;
-			mRequestedDataSize = wireworldFrameMessageSize (mPos2.x () - mPos1.x (), mPos2.y () - mPos1.y ());
+			mRequestedDataSize = wireworldFrameMessageSize (
+					mPos2.x () - mPos1.x (),
+					mPos2.y () - mPos1.y ());
 		} else if (mDecodingStep == RectUpdateWaitingData) {
 			// Get data in a buffer
 			wireworld_message_t * buf = new wireworld_message_t [mRequestedDataSize];
