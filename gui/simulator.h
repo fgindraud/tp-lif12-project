@@ -52,6 +52,9 @@ class WireWorldMap {
  * It handles timing control (including actions from buttons),
  * and buffers multiple frames in advance to hide network latency
  * (but it outputs them in the right order).
+ *
+ * If the interval is 0, we are in fullspeed mode, and we redraw each time
+ * a new frame arrives. We only buffers when in a pause (stepMode)
  */
 class PixmapBuffer : public QObject {
 	Q_OBJECT
@@ -80,6 +83,7 @@ class PixmapBuffer : public QObject {
 
 		int maxCredits;
 		bool isInStepMode;
+		bool isFullSpeed;
 };
 
 /*

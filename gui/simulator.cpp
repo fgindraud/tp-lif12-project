@@ -130,12 +130,20 @@ PixmapBuffer::PixmapBuffer () {
 }
 
 void PixmapBuffer::reset (int maxCreditAllowed, int interval) {
+	// Get mode
+	isFullSpeed = (interval <= 0);
+	
+	// Reset timer if we need it
+	if (not isFullSpeed)
+		timer.setInterval (interval);
+	
+	// Clear the queue, in the case there are left-overs from a previous simulation
 	pixmapQueue.clear ();
 	
-	timer.setInterval (interval);
+	// Start paused (stepmode)
 	isInStepMode = true;
 
-	// Init credit system.
+	// Init credit system, and send them
 	maxCredits = maxCreditAllowed;
 	emit hasCredit (maxCreditAllowed);
 }
@@ -145,41 +153,68 @@ bool PixmapBuffer::pixmapReady (QPixmap pixmap) {
 	if (pixmapQueue.size () == maxCredits)
 		return false;
 
-	// Queue pixmap
+	// Queue pixmap (even in fullspeed mode)
 	bool wasEmpty = pixmapQueue.isEmpty ();
 	pixmapQueue.enqueue (pixmap);
 
-	// If we were in free run mode and stopped because buffer empty, restart timer
-	if (wasEmpty && not isInStepMode) {
-		outputPixmap ();
-		timer.start ();
+	if (isFullSpeed) {
+		// In fullspeed, we redraw each time a frame arrives (and we are not paused).
+		if (not isInStepMode)
+			outputPixmap ();
+	} else {
+		// If not in fullspeed, it is the timer job to dequeue and redraw.
+		
+		// But if the buffer was empty, and we are not paused, it means the timer
+		// did not found a frame when it tried to redraw, and was stopped.
+		// So output the missing frame, and restart the timer.
+		if (wasEmpty && not isInStepMode) {
+			outputPixmap ();
+			timer.start ();
+		}
 	}
 	return true;
 }
 
 void PixmapBuffer::start (void) {
+	// Get out of step mode
 	isInStepMode = false;
-	timer.start ();
+
+	// Restarts timer if we need it
+	if (not isFullSpeed)
+		timer.start ();
 }
 
 void PixmapBuffer::stop (void) {
+	// Enter step mode
 	isInStepMode = true;
-	timer.stop ();
+
+	// Stop timer if used
+	if (not isFullSpeed)
+		timer.stop ();
 }
 
 void PixmapBuffer::step (void) {
+	// In every mode, redraw if we are in paused mode and there is a ready frame.
+	// Do nothing (no error) if no frame is here, or not paused (should not arrive).
 	if (isInStepMode && not pixmapQueue.empty ())
 		outputPixmap ();
 }
 
 void PixmapBuffer::timerTicked (void) {
-	if (not pixmapQueue.isEmpty ())
-		outputPixmap (); // If we have a pixmap, update screen
-	else
-		timer.stop (); // Otherwise we stop the timer until data arrives
+	if (not isFullSpeed) {
+		// If we are using timer-based redraw only, try to redraw the screen.
+		// If no frame is ready, stop the timer, which will be restarted when a frame arrives
+		// to resume normal working state.
+		if (not pixmapQueue.isEmpty ())
+			outputPixmap ();
+		else
+			timer.stop ();
+	}
 }
 
 void PixmapBuffer::outputPixmap (void) {
+	// Extract a frame from the queue, and give a credit to sender to allow
+	// it to send another frame.
 	emit canRedraw (pixmapQueue.dequeue ());
 	emit hasCredit (1);
 }
@@ -213,7 +248,7 @@ void ExecuteAndProcessOutput::init (
 
 	// Check loading
 	if (image.isNull ()) {
-		abort (QString ("Unable to load file '%1'").arg (mapFile));
+		abort (QString ("Unable to load file \"%1\"").arg (mapFile));
 		return;
 	}
 
@@ -304,7 +339,7 @@ void ExecuteAndProcessOutput::canReadData (void) {
 			// Read one message to determine type.
 			wireworld_message_t messageType;
 			readInternal (&messageType, 1);
-			
+
 			if (messageType == A_RECT_UPDATE) {
 				// Message with payload and more header info ; get complete header first
 				mDecodingStep = RectUpdateWaitingPos;
@@ -313,7 +348,7 @@ void ExecuteAndProcessOutput::canReadData (void) {
 				// Extract pixmap and add to queue
 				if (not mPixmapBuffer.pixmapReady (mCellMap.toImage ()))
 					abort ("Protocol error : credit not given");
-				
+
 				// Do not change state and requestedSize, message with no payload
 			} else {
 				abort ("Protocol error : unknown message type");
@@ -326,7 +361,7 @@ void ExecuteAndProcessOutput::canReadData (void) {
 			mPos1.setY (pos[1]);
 			mPos2.setX (pos[2]);
 			mPos2.setY (pos[3]);
-			
+
 			// Wait for data
 			mDecodingStep = RectUpdateWaitingData;
 			mRequestedDataSize = wireworldFrameMessageSize (mPos2.x () - mPos1.x (), mPos2.y () - mPos1.y ());
@@ -342,7 +377,7 @@ void ExecuteAndProcessOutput::canReadData (void) {
 			// Apply rect update
 			mCellMap.updateMap (mPos1, mPos2, buf);
 			delete[] buf;
-			
+
 			// Return to wait message state
 			mDecodingStep = WaitingHeader;
 			mRequestedDataSize = 1;
