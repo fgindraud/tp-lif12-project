@@ -6,15 +6,23 @@ void update_map (int * dir, char ** maps, uint32_t xs, uint32_t ys);
 
 /* Small utils */
 static inline char * map (char * tab, int x, int y, int xsize) { return &tab[x + y * xsize]; }
+static void grim_reaper (int sig) { (void) sig; wait (NULL); }
 
 /* main */
 int main (void) {
 	int serverSock = serverInit (8000);
+	signal (SIGCHLD, grim_reaper);
 	while (serverSock != -1) {
 		int res = serverAccept (serverSock);
 		if (res > 0) {
-			perform_simulation (res);
-			close (res);
+			if(fork () == 0) {
+				perform_simulation (res);
+				close (res);
+				close (serverSock);
+				serverSock = -1;
+			} else {
+				close(res);
+			}
 		} else {
 			close (serverSock);
 			serverSock = -1;
