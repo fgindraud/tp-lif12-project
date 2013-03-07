@@ -1,8 +1,7 @@
-Protocol info is in protocol.h (can be included in students simulators).
-
 To compile the Gui (in gui dir):
 $ qmake
 $ make
+(if you have qt4 and qt5, it is recommended to use qt4 (using qmake-qt4))
 
 To compile the example server (in server dir) :
 $ make

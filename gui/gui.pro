@@ -4,8 +4,8 @@
 
 TEMPLATE = app
 TARGET = gui
-DEPENDPATH = . ../protocol/
-INCLUDEPATH = $$DEPENDPATH
+VPATH += ../protocol/
+INCLUDEPATH += $$VPATH
 QT += core gui network
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
