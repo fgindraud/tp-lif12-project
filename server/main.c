@@ -1,5 +1,7 @@
 #include "server.h"
 
+#include <sys/wait.h>
+
 /* Proto/macro */
 void perform_simulation (int sock);
 void update_map (int * dir, char ** maps, uint32_t xs, uint32_t ys);
@@ -16,13 +18,11 @@ int main (void) {
 		int res = serverAccept (serverSock);
 		if (res > 0) {
 			if(fork () == 0) {
-				perform_simulation (res);
-				close (res);
 				close (serverSock);
 				serverSock = -1;
-			} else {
-				close(res);
+				perform_simulation (res);
 			}
+			close(res);
 		} else {
 			close (serverSock);
 			serverSock = -1;
