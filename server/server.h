@@ -2,7 +2,6 @@
 #define SERVER_H
 
 #include <sys/types.h>
-#include <sys/wait.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
