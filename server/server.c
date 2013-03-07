@@ -22,12 +22,6 @@ void charToNetworkMap (wireworld_message_t * networkMap, char * charMap,
 int serverInit (int port) {
 	int sock;
 
-	// Avoid program termination on failed write
-	if (signal (SIGPIPE, SIG_IGN) == SIG_ERR) {
-		perror ("signal");
-		return -1;
-	}
-
 	sock = socket (AF_INET6, SOCK_STREAM, 0);
 	if (sock != -1) {
 		struct sockaddr_in6 saddr;
@@ -111,12 +105,17 @@ int connectionSendFullUpdate (int connSock,
 		char * charMap, uint32_t width, uint32_t height,
 		uint32_t localXStart, uint32_t localYStart, uint32_t localXEnd, uint32_t localYEnd) {
 	// Send a complete rect update followed by an end of frame
-	if (connectionSendRectUpdate (connSock,
+	int res = connectionSendRectUpdate (connSock,
 				charMap, width, height,
 				localXStart, localYStart, localXEnd, localYEnd,
-				0, 0) == 0 &&
-			connectionSendFrameEnd (connSock) == 0) {
-		return 0;
+				0, 0);
+	int res2 = connectionSendFrameEnd (connSock);
+	
+	// Checking time
+	if (res == 0 && res2 == 0) {
+		return 0; // All went well
+	} else if (res == 1 || res2 == 1) {
+		return 1; // End of connection
 	} else {
 		fprintf (stderr, "Error while sending full update\n");
 		return -1;
@@ -161,7 +160,8 @@ int connectionSendRectUpdate (int connSock,
 	message[4] = realYStart + localYEnd - localYStart;
 	
 	// Send it
-	if (sendMessages (connSock, message, 5) == 0) {
+	int res = sendMessages (connSock, message, 5);
+	if (res == 0) {
 		// Prepare buffer
 		uint32_t data_size = wireworldFrameMessageSize (
 				localXEnd - localXStart,
@@ -169,17 +169,24 @@ int connectionSendRectUpdate (int connSock,
 		wireworld_message_t * buf = malloc (data_size * sizeof (wireworld_message_t));
 		assert (buf != NULL);
 
-		// Convert and send
+		// Convert
 		charToNetworkMap (buf,
 				charMap, width, height,
 				localXStart, localYStart, localXEnd, localYEnd);
-		if (sendMessages (connSock, buf, data_size) == 0) {
+
+		// Send data
+		int res2 = sendMessages (connSock, buf, data_size);
+		if (res2 == 0) {
 			ret = 0;
+		} else if (res2 == 1) {
+			ret = 1;
 		} else {
 			fprintf (stderr, "Error while sending A_RECT_UPDATE data\n");
 		}
 
 		free (buf);
+	} else if (res == 1) {
+		ret = 1;
 	} else {
 		fprintf (stderr, "Error while sending A_RECT_UPDATE header\n");
 	}
@@ -189,9 +196,12 @@ int connectionSendRectUpdate (int connSock,
 int connectionSendFrameEnd (int connSock) {
 	assert (connSock != -1);
 	wireworld_message_t message = A_FRAME_END;
-	if (sendMessages (connSock, &message, 1) != 0) {
+	int res = sendMessages (connSock, &message, 1);
+	if (res == -1) {
 		fprintf (stderr, "Error while sending A_FRAME_END\n");
 		return -1;
+	} else if (res == 1) {
+		return 1; // End of connection
 	} else {
 		return 0;
 	}
@@ -243,11 +253,17 @@ static int sendMessages (int sock, wireworld_message_t * buffer, uint32_t count)
 	// Send raw data
 	char * it = (char *) tmp_buf;
 	while (bytes_to_send > 0) {
-		int res = write (sock, it, bytes_to_send);
+		int res = send (sock, it, bytes_to_send, MSG_NOSIGNAL);
 		if (res == -1) {
-			perror ("write");
-			free (tmp_buf);
-			return -1;
+			if (errno == EPIPE || errno == ECONNRESET) {
+				// On end of connection
+				return 1;
+			} else {
+				// Real error
+				perror ("write");
+				free (tmp_buf);
+				return -1;
+			}
 		}	
 		it += res;
 		bytes_to_send -= res;

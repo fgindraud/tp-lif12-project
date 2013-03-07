@@ -1,6 +1,7 @@
 #include "server.h"
 
 #include <sys/wait.h>
+#include <signal.h>
 
 /* Proto/macro */
 void perform_simulation (int sock);

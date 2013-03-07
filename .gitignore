@@ -1,0 +1,7 @@
+.tmp
+.*.swap
+moc_*
+*.o
+gui
+server
+gui/Makefile

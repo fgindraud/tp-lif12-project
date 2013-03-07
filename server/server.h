@@ -1,16 +1,16 @@
 #ifndef SERVER_H
 #define SERVER_H
 
-#include <sys/types.h>
-#include <unistd.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
-#include <string.h>
-#include <signal.h>
-#include <stdio.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <errno.h>
 #include <assert.h>
+#include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "../protocol/protocol.h"
 
@@ -45,6 +45,7 @@ int connectionWaitForInit (int connSock,
  * It will send the rectangle from point (localXStart, localYStart) included to point
  * (localXEnd, localYEnd) excluded, extracted from the 2d array of char 'charMap' with
  * width 'width' and height 'height'.
+ * Returns -1 on error, 0 on success, 1 on connection closed.
  */
 int connectionSendFullUpdate (int connSock,
 		char * charMap, uint32_t width, uint32_t height,
@@ -67,6 +68,7 @@ int connectionWaitFrameRequest (int connSock);
  * the same argument semantics than connectionSendFullUpdate.
  * In addition we give the target coordinates of where the rectangle should be copied to,
  * in real map coordinates.
+ * Returns -1 on error, 0 on success, 1 on connection closed.
  */
 int connectionSendRectUpdate (int connSock,
 		char * charMap, uint32_t width, uint32_t height,
@@ -74,6 +76,7 @@ int connectionSendRectUpdate (int connSock,
 		uint32_t realXStart, uint32_t realYStart);
 
 /* This function will mark the end of the sequence of modifications of this frame.
+ * Returns -1 on error, 0 on success, 1 on connection closed.
  */
 int connectionSendFrameEnd (int connSock);
 
