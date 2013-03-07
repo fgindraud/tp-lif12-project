@@ -75,19 +75,11 @@ ConfigWidget::ConfigWidget (ExecuteAndProcessOutput * executorHandle) :
 	cellSize->setToolTip ("Size of cells in the loaded image");
 	wireworldMapConfig->addWidget (cellSize);
 
-	enableScaling = new QCheckBox ("Scaling");
-	enableScaling->setToolTip ("Scale image to window size, recommended for small examples");
-	enableScaling->setCheckState (Qt::Checked);
-	wireworldMapConfig->addWidget (enableScaling);
-
 	setState (Stopped);
 
 	// Signals
 	QObject::connect (openFromFile, SIGNAL (clicked ()),
 			this, SLOT (openFile ()));
-
-	QObject::connect (enableScaling, SIGNAL (stateChanged (int)),
-			this, SLOT (scalingChecked (int)));
 
 	QObject::connect (programInit, SIGNAL (clicked ()),
 			this, SLOT (initClicked ()));
@@ -123,10 +115,7 @@ void ConfigWidget::setState (SimulatorState state) {
 	mapName->setEnabled (enableSettings);
 	openFromFile->setEnabled (enableSettings);
 	cellSize->setEnabled (enableSettings);
-	enableScaling->setEnabled (true);
 }
-
-void ConfigWidget::scalingChecked (int state) { emit setScaling (state == Qt::Checked); }
 
 void ConfigWidget::openFile (void) {
 	QString file = QFileDialog::getOpenFileName (
@@ -193,9 +182,6 @@ int main (int argc, char * argv[]) {
 
 	WireWorldDrawZone * wireworldDrawer = new WireWorldDrawZone (executor);
 	mainLayout->addWidget (wireworldDrawer, 1);
-
-	QObject::connect (configWidget, SIGNAL (setScaling (bool)),
-			wireworldDrawer, SLOT (setScalingStatus (bool)));
 
 	window->show ();
 	return app.exec ();

@@ -26,14 +26,9 @@ class ConfigWidget : public QGroupBox {
 
 		ConfigWidget (ExecuteAndProcessOutput * executorHandle);
 
-	signals:
-		void setScaling (bool enabled);
-
 	private slots:
 		void setState (SimulatorState state);
 
-		void scalingChecked (int state);
-		
 		void openFile (void);
 		void initClicked (void);
 		void playClicked (void);
@@ -54,8 +49,8 @@ class ConfigWidget : public QGroupBox {
 		QLineEdit * programAddress;
 		QSpinBox * programPort;
 
-		QSpinBox * programSamplingRate; // TODO
-		QSpinBox * programUpdateRate; // TODO
+		QSpinBox * programSamplingRate;
+		QSpinBox * programUpdateRate;
 
 		QPushButton * programInit;
 		QPushButton * programStart;
@@ -66,7 +61,6 @@ class ConfigWidget : public QGroupBox {
 		QLineEdit * mapName;
 		QPushButton * openFromFile;
 		QSpinBox * cellSize;
-		QCheckBox * enableScaling;
 };
 
 /*
@@ -76,14 +70,13 @@ class WireWorldDrawZone : public QLabel {
 	Q_OBJECT
 
 	public:
-		WireWorldDrawZone (ExecuteAndProcessOutput * executor) : scalingEnabled (true) {
+		WireWorldDrawZone (ExecuteAndProcessOutput * executor) {
 			setAlignment (Qt::AlignCenter);
 			setSizePolicy (QSizePolicy::Expanding, QSizePolicy::Expanding);
 
 			QObject::connect (executor, SIGNAL (redraw (QPixmap)),
 					this, SLOT (updateWireworld (QPixmap)));
 		}
-		~WireWorldDrawZone () {}
 
 	public slots:
 		void updateWireworld (QPixmap pixmap) {
@@ -95,19 +88,21 @@ class WireWorldDrawZone : public QLabel {
 			updateScreen ();
 		}
 
-		void setScalingStatus (bool enabled) {
-			scalingEnabled = enabled;
-			updateScreen ();
-		}
-
 	private:
 		void updateScreen (void) {
-			if (buffer.isNull ())
-				setPixmap (QPixmap ());
-			else if (scalingEnabled)
-				setPixmap (buffer.scaled (size (), Qt::KeepAspectRatio));
-			else
+			if (not buffer.isNull ()) {
+				QSize scaledSize (
+						(width () / buffer.width ()) * buffer.width (),
+						(height () / buffer.height ()) * buffer.height ());
+				
+				// Avoid a call to scaled() if same size
+				if (scaledSize != buffer.size ())
+					setPixmap (buffer.scaled (scaledSize, Qt::KeepAspectRatio));
+				else
+					setPixmap (buffer);
+			} else {
 				setPixmap (buffer);
+			}
 		}
 
 		void resizeEvent (QResizeEvent * event) {
@@ -116,7 +111,6 @@ class WireWorldDrawZone : public QLabel {
 		}
 
 		QPixmap buffer;
-		bool scalingEnabled;
 };
 
 #endif
