@@ -159,7 +159,6 @@ bool PixmapBuffer::pixmapReady (QPixmap pixmap) {
 		return false;
 
 	// Queue pixmap (even in fullspeed mode)
-	bool wasEmpty = pixmapQueue.isEmpty ();
 	pixmapQueue.enqueue (pixmap);
 
 	if (isFullSpeed) {
@@ -169,10 +168,10 @@ bool PixmapBuffer::pixmapReady (QPixmap pixmap) {
 	} else {
 		// If not in fullspeed, it is the timer job to dequeue and redraw.
 		
-		// But if the buffer was empty, and we are not paused, it means the timer
+		// But if the timer is stopped, and we are not paused, it means the timer
 		// did not found a frame when it tried to redraw, and was stopped.
 		// So output the missing frame, and restart the timer.
-		if (wasEmpty && not isInStepMode) {
+		if (not timer.isActive () && not isInStepMode) {
 			outputPixmap ();
 			timer.start ();
 		}
@@ -305,6 +304,9 @@ void ExecuteAndProcessOutput::onSocketError (void) {
 }
 
 void ExecuteAndProcessOutput::onSocketDisconnected (void) {
+	mPixmapBuffer.stop ();
+	mSocket.close ();
+
 	// Signal gui if connection has been closed
 	emit connectionEnded ();
 }
@@ -315,7 +317,7 @@ void ExecuteAndProcessOutput::bufferSaidRedraw (QPixmap pixmap) {
 }
 
 void ExecuteAndProcessOutput::sendFrameRequest (int nbRequests) {
-	wireworld_message_t message = R_FRAME;
+	const wireworld_message_t message = R_FRAME;
 	for (int i = 0; i < nbRequests; ++i)
 		writeInternal (&message, 1);
 }
