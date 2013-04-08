@@ -1,15 +1,22 @@
+#CC = clang
 CFLAGS = -Wall -Wextra -O2 
-EXEC = server
+
+BIN=server
+OBJ=main.o server.o
 
 .PHONY: all clean mrproper
 
-all: $(EXEC)
+all: $(BIN)
 
-$(EXEC): server.c main.c server.h ../protocol/protocol.h
-	gcc $(CFLAGS) $^ -o $@
+$(BIN): $(OBJ)
+
+server.o: server.c server.h ../protocol/protocol.h
+
+main.o: main.c server.h
 
 clean:
+	rm -f $(OBJ)
 
 mrproper: clean
-	rm -f $(EXEC)
+	rm -f $(BIN)
 

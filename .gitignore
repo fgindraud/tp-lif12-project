@@ -2,6 +2,6 @@
 .*.swap
 moc_*
 *.o
-gui
-server
+gui/gui
+server/server
 gui/Makefile
